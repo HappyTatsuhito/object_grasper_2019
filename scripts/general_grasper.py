@@ -48,7 +48,6 @@ class GeneralGrasper(ObjectGrasper):
         elif cmd.data == 'place':
             self.moveBase(-0.4)
             y = self.target_place[self.navigation_place] + 0.1
-            print self.navigation_place
             x = (y-0.75)/10+0.5
             print 'x : ', x
             print 'y : ', y
@@ -68,12 +67,12 @@ class GeneralGrasper(ObjectGrasper):
             self.elbowPub(joint_angle[1])
             self.moveBase(0.6)
             rospy.sleep(0.4)
-            self.armController(shoulder_param, joint_angle[1]-0.8, m3_angle+0.4)
+            self.armController(shoulder_param, joint_angle[1]-0.6, m3_angle+0.3)
             rospy.sleep(0.2)
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(0.5)
             self.moveBase(-0.3)
-            self.shoulderPub(shoulder_param+0.5)
+            self.shoulderPub(shoulder_param+0.2)
             self.moveBase(-0.8)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
@@ -86,6 +85,7 @@ class GeneralGrasper(ObjectGrasper):
 
     def graspObject(self, obj_cog):
         print '-- Grasp Object --'
+        print self.navigation_place
         self.moveBase(-0.6)
         if self.navigation_place == 'Null':
             y = obj_cog.z+0.06
@@ -133,7 +133,7 @@ class GeneralGrasper(ObjectGrasper):
         return
         
     def navigationPlaceCB(self,res):
-        target_dic = {'Eins':['desk'], 'Zwei':['cupboad'], 'Drei':['shelf']}
+        target_dic = {'Eins':['desk'], 'Zwei':['cupboard'], 'Drei':['shelf']}
         for key,value in target_dic.items():
             if res.data in value:
                 self.navigation_place = key
@@ -148,7 +148,7 @@ class GeneralGrasper(ObjectGrasper):
         localize_flg = self.localizeObject(obj_cog)
         if localize_flg:
             self.graspObject(obj_cog)
-        print 'Finish grasp'
+        print 'Finish grasp\n'
                 
 if __name__ == '__main__':
     rospy.init_node('General_Grasper',anonymous=True)
