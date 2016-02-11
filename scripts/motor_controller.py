@@ -22,7 +22,7 @@ class MotorController(object):
         # ROS Service Client
         self.motor_client = rospy.ServiceProxy('/dynamixel_workbench/dynamixel_command',DynamixelCommand)
         # Motor Parameters
-        self.origin_angle = [2000, 2048, 2048, 2048, 2850, 2048]
+        self.origin_angle = [1785, 2274, 1890, 2048, 3500, 2048]
         self.current_pose = [0]*5
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
@@ -69,7 +69,7 @@ class JointController(MotorController):
         rospy.sleep(0.5)
         while (self.rotation_velocity[0] > 0 or self.rotation_velocity[1] > 0) and not rospy.is_shutdown():
             pass
-        rospy.sleep(1.0)
+        rospy.sleep(0.1)
         if abs(self.torque_error[0]) > 40 or abs(self.torque_error[1] > 40):
             thread_m0 = threading.Thread(target=self.callMotorService, args=(0, self.current_pose[0]+30,))
             thread_m1 = threading.Thread(target=self.callMotorService, args=(1, self.current_pose[1]-30,))
@@ -92,14 +92,16 @@ class JointController(MotorController):
     def wristPub(self,rad):
         if type(rad) == type(Float64()):
             rad = rad.data
-        step = self.radToStep(rad)
+        step = self.radToStep(rad) + (self.origin_angle[3]-2048)
         print '3: ', step
-        self.callMotorService(3, step) + (self.origin_angle[3]-2048)
+        self.callMotorService(3, step)
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
         rospy.sleep(0.5)
+        '''
         if abs(self.torque_error[3]) > 40:
             self.callMotorService(3, self.current_pose[3]-30)
+        '''
 
     def endeffectorPub(self,req):
         angle = self.origin_angle[4]
@@ -108,17 +110,17 @@ class JointController(MotorController):
             pass
         rospy.sleep(0.5)
         grasp_flg = True
-        while abs(self.torque_error[4]) <= 100 and not rospy.is_shutdown():
-            angle += 30
+        while abs(self.torque_error[4]) <= 50 and not rospy.is_shutdown():
+            angle -= 30
             self.callMotorService(4, angle)
             rospy.sleep(0.06)
             while self.rotation_velocity[4] > 2.0 and not rospy.is_shutdown():
                 pass
-            if angle > 2900:
+            if angle < 2850:
                 grasp_flg = False
                 break;
         rospy.sleep(0.1)
-        self.callMotorService(4, self.current_pose[4]-40)
+        self.callMotorService(4, self.current_pose[4]-60)
         print 'fin'
         return grasp_flg
 
@@ -145,8 +147,8 @@ class ArmPoseChanger(JointController):
         rospy.loginfo('initialized all motors!')
 
     def inverseKinematics(self, x, y):
-        l0 = 0.81# Height from ground to shoulder(metre)
-        l1 = 0.19# Length from shoulder to elbow(metre)
+        l0 = 0.78# Height from ground to shoulder(metre)
+        l1 = 0.22# Length from shoulder to elbow(metre)
         l2 = 0.17# Length from elbow to wrist(metre)
         l3 = 0.15# Length of end effector(metre)
         x -= l3
@@ -205,10 +207,10 @@ class ArmPoseChanger(JointController):
         self.armController(shoulder_param, elbow_param, wrist_param)
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
-        rospy.sleep(0.5)
+        rospy.sleep(3.0)
         wrist_error = abs(self.torque_error[3])
         give_time = time.time()
-        while abs(wrist_error - abs(self.torque_error[3])) < 5 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
+        while abs(wrist_error - abs(self.torque_error[3])) < 10 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
             print wrist_error, '\t', abs(self.torque_error[3])
             pass
         self.callMotorService(4, self.origin_angle[4])
