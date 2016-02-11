@@ -121,7 +121,7 @@ class Experiment(object):
                 grasp_flg = False
                 break;
         rospy.sleep(0.1)
-        self.m4_pub.publish(self.m4_current_pos -  0.05)
+        self.m4_pub.publish(self.m4_current_pos -  0.06)
         return grasp_flg
 
     def inverseKinematics(self, x, y):
