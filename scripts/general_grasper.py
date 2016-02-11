@@ -47,8 +47,11 @@ class GeneralGrasper(ObjectGrasper):
             print 'Finish giving\n'
         elif cmd.data == 'place':
             self.moveBase(-0.4)
-            y = self.target_place[self.navigation_place] + 0.02
+            y = self.target_place[self.navigation_place] + 0.2
+            print self.navigation_place
             x = (y-0.75)/10+0.5
+            print 'x : ', x
+            print 'y : ', y
             s_p, e_p, wrist_param = self.inverseKinematics(x, y)
             self. wristPub(wrist_param)
             while self.m3_is_moving and not rospy.is_shutdown():
@@ -87,7 +90,7 @@ class GeneralGrasper(ObjectGrasper):
         if self.navigation_place == 'Null':
             y = obj_cog.z
         else:
-            y = self.target_place[self.navigation_place]
+            y = self.target_place[self.navigation_place]+0.1
         x = (y-0.75)/10+0.5 #0.5
         s_a, e_a, w_a = self.inverseKinematics(x, y)
         self.armController(s_a, e_a, w_a)

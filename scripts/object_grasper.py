@@ -224,7 +224,7 @@ class ObjectGrasper(Experiment):
         return
 
     def inverseKinematics(self, x, y):
-        l0 = 0.85# Height from ground to shoulder(metre)
+        l0 = 0.75# Height from ground to shoulder(metre)
         l1 = 0.24# Length from shoulder to elbow(metre)
         l2 = 0.20# Length from elbow to wrist(metre)
         l3 = 0.15# Length of end effector(metre)
