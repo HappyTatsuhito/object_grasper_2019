@@ -37,7 +37,7 @@ class ObjectGrasper(Experiment):
         self.act.register_preempt_callback(self.actionPreempt)
         # -- instance variables --
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.73, 'Zwei':0.67, 'Drei':0.69, 'vier':0.38}
+        self.target_place = {'Null':0.75, 'Eins':0.73, 'Zwei':0.67, 'Drei':0.69, 'vier':0.40}
         #self.place_list = rosparam.get_param('/place_list')
         #self.front_laser_dist = 0.00
 
@@ -48,7 +48,7 @@ class ObjectGrasper(Experiment):
             cmd = cmd.target
         rospy.loginfo('  Change arm command : %s'%cmd)
         if cmd == 'carry':
-            shoulder_param = -3.0
+            shoulder_param = -3.2
             elbow_param = 2.6
             wrist_param = 1.4
             self.armController(shoulder_param, elbow_param, wrist_param)
@@ -73,7 +73,7 @@ class ObjectGrasper(Experiment):
         
         elif cmd == 'place':
             self.moveBase(-0.55)
-            y = self.target_place[self.navigation_place] + 0.2
+            y = self.target_place[self.navigation_place] + 0.26
             x = (y-0.75)/10+0.5
             joint_angle = self.inverseKinematics(x, y)
             if not joint_angle:
@@ -88,15 +88,15 @@ class ObjectGrasper(Experiment):
             # -(m3_diff+0.025)*32：重さ補正
             rospy.sleep(0.2)
             self.shoulderPub(shoulder_param)
-            self.elbowPub(joint_angle[1])
+            self.elbowPub(joint_angle[1]+0.2)
             self.moveBase(0.65)
             rospy.sleep(0.4)
-            self.armController(shoulder_param, joint_angle[1]-0.6-0.2, m3_angle+0.3)
+            self.armController(shoulder_param, joint_angle[1]-0.6, m3_angle+0.3)
             rospy.sleep(0.2)
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(0.5)
             self.moveBase(-0.3)
-            self.shoulderPub(shoulder_param+0.2)
+            self.shoulderPub(shoulder_param+0.1)
             self.moveBase(-0.9)
             self.changeArmPose('carry')
             self.navigation_place = 'Null'
@@ -146,15 +146,15 @@ class ObjectGrasper(Experiment):
             return False
         self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         rospy.sleep(2.5)
-        object_centroid.x -= ((object_centroid.x-0.5)/2)
-        move_range = (0.17+object_centroid.x+0.15-(x+0.2))*4.0
+        object_centroid.x -= ((object_centroid.x-0.6)/2)
+        move_range = (0.17+object_centroid.x+0.15-(x+0.2))*4.5
         self.moveBase(move_range*0.7)
         rospy.sleep(0.3)
         self.moveBase(move_range*0.4)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(1.0)
-        self.shoulderPub(joint_angle[0]+0.2)
-        self.moveBase(-0.6)
+        self.shoulderPub(joint_angle[0]+0.1)
+        self.moveBase(-0.7)
         #self.shoulderPub(0.7) # 重い物体を把持した場合に必要
         self.changeArmPose('carry')
         rospy.sleep(4.0)
