@@ -86,7 +86,7 @@ class Manipulation:
             arm_change_cmd.data = 'carry'
             self.ChangePoseReqCB(arm_change_cmd)
         elif cmd.data == 'place':
-            self.MoveBase(-0.6)
+            self.MoveBase(-0.4)
             wrist_param = -0.7
             self. wristPub(wrist_param)
             while self.m3_is_moving and not rospy.is_shutdown():
@@ -95,22 +95,27 @@ class Manipulation:
             m3_angle = self.m3_current_pos
             m3_diff = self.m3_error
             shoulder_param = -1*(1.3+m3_angle)*2.1-(m3_diff+0.01)*32
-            # -(m3_diff+0.025)*32：重さ補正
-            rospy.sleep(0.1)
+            # -(m3_diff+0.025)*32:
+            rospy.sleep(0.2)
             self.shoulderPub(shoulder_param)
-            rospy.sleep(0.1)
+            rospy.sleep(0.2)
             elbow_param = 2.6
             self.elbowPub(elbow_param)
-            rospy.sleep(2.0)
-            move_range = (self.front_laser_dist-0.75)*2.5
+            move_range = (self.front_laser_dist-0.75)*3.0
             self.MoveBase(move_range * 0.6)
             rospy.sleep(0.4)
             self.MoveBase(move_range * 0.4)
+            rospy.sleep(0.4)
             angle = 0.0
             elbow_current = self.m2_current_pos
             wrist_current = self.m3_current_pos
-            while self.m3_error <= -0.015 and not rospy.is_shutdown():
-                angle += 0.01
+            wrist_error = self.m3_error + 0.01
+            #while self.m3_error <= -0.015 and not rospy.is_shutdown():
+            while self.m3_error - wrist_error < 0.015 and not rospy.is_shutdown():
+                print (angle*100)%2
+                if (angle*100) % 2:
+                    wrist_error = self.m3_error
+                angle += 0.03
                 elbow_angle = elbow_current + angle*2
                 wrist_angle = wrist_current + angle
                 #self.manipulationController(shoulder_param, elbow_param, wrist_param)
@@ -118,12 +123,16 @@ class Manipulation:
                 rospy.sleep(0.1)
                 self.m3_pub.publish(wrist_angle)
                 rospy.sleep(0.05)
-                while self.m2_velocity >= 1.0 or self.m3_velocity >= 1.0:
+                while (self.m2_is_moving or self.m3_is_moving) and not rospy.is_shutdown():
                     pass
+                print self.m3_error - wrist_error
                 if angle > 1.5:
                     break
+                rospy.sleep(0.1)
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
-            rospy.sleep(1.5)
+            rospy.sleep(1.0)
+            self.MoveBase(-0.15)
+            self.shoulderPub(-1.0)
             self.MoveBase(-0.5)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
@@ -156,7 +165,7 @@ class Manipulation:
         self.ChangePoseReqCB(arm_change_cmd)
         self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
         obj_cog.y += 0.08 # calibrate RealSenseCamera d435
-        obj_cog.z -= 0.04
+        #obj_cog.z -= 0.015
         print obj_cog
         if math.isnan(obj_cog.x):
             self.MoveBase(0.3)
@@ -214,7 +223,7 @@ class Manipulation:
             retry_cmd.data = 'retry'
             self.retry_pub.publish(retry_cmd)
             return
-        shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍を消せば別解
+        shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1
         elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
         wrist_angle = -1*(shoulder_angle + elbow_angle)
         print 'shoulder_angle : ', shoulder_angle*2.1, ' deg : ', math.degrees(shoulder_angle)
@@ -222,7 +231,7 @@ class Manipulation:
         print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
         self.manipulationController(shoulder_angle*2.1, elbow_angle*2.1, wrist_angle)
         '''
-        ### 決め打ち用
+        ### kimeuchi
         self.manipulationController(-1.07115820647, 2.3719040394, -0.619402777586)
         ###
         rospy.sleep(0.1)
@@ -234,8 +243,9 @@ class Manipulation:
         self.MoveBase(move_range*0.3)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(2.0)
-        self.shoulderPub(0.7)
+        self.shoulderPub(-1.0)
         self.MoveBase(-0.6)
+        self.shoulderPub(0.7)
         arm_change_cmd.data = 'carry'
         self.ChangePoseReqCB(arm_change_cmd)
         rospy.sleep(4.0)
@@ -257,9 +267,9 @@ class Manipulation:
         thread_elbow = threading.Thread(target=self.elbowPub, args=(elbow_param,))
         thread_wrist = threading.Thread(target=self.wristPub, args=(wrist_param,))
         thread_elbow.start()
-        rospy.sleep(0.1)
+        rospy.sleep(0.2)
         thread_wrist.start()
-        rospy.sleep(0.1)
+        rospy.sleep(0.2)
         thread_shoulder.start()
         
     def shoulderPub(self, m01):
@@ -327,13 +337,13 @@ class Manipulation:
 
     def M2StateCB(self,state):
         self.m2_current_pos = state.current_pos
-        self.m2_error = abs(state.error)
+        self.m2_error = state.error
         self.m2_is_moving = state.is_moving
         self.m2_velocity = abs(state.velocity)
 
     def M3StateCB(self,state):
         self.m3_current_pos = state.current_pos
-        self.m3_error = abs(state.error)
+        self.m3_error = state.error
         self.m3_is_moving = state.is_moving
         self.m3_velocity = abs(state.velocity)
         
