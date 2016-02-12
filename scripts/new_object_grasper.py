@@ -37,7 +37,7 @@ class ObjectGrasper(Experiment):
         self.act.register_preempt_callback(self.actionPreempt)
         # -- instance variables --
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.75, 'Zwei':0.67, 'Drei':0.69, 'vier':0.38}
+        self.target_place = {'Null':0.75, 'Eins':0.73, 'Zwei':0.67, 'Drei':0.69, 'vier':0.38}
         #self.place_list = rosparam.get_param('/place_list')
         #self.front_laser_dist = 0.00
 
@@ -73,7 +73,7 @@ class ObjectGrasper(Experiment):
         
         elif cmd == 'place':
             self.moveBase(-0.55)
-            y = self.target_place[self.navigation_place] + 0.15
+            y = self.target_place[self.navigation_place] + 0.2
             x = (y-0.75)/10+0.5
             joint_angle = self.inverseKinematics(x, y)
             if not joint_angle:
