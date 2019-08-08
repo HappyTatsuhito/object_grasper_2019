@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-test
+
 import sys
 import copy
 import rospy
