@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
 import sys
 import copy
@@ -95,7 +96,7 @@ class Manipulation:
             m3_angle = self.m3_current_pos
             m3_diff = self.m3_error
             shoulder_param = -1*(1.3+m3_angle)*2.1-(m3_diff+0.01)*32
-            # -(m3_diff+0.025)*32:
+            # -(m3_diff+0.025)*32：重さ補正
             rospy.sleep(0.2)
             self.shoulderPub(shoulder_param)
             rospy.sleep(0.2)
@@ -132,7 +133,7 @@ class Manipulation:
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(1.0)
             self.MoveBase(-0.15)
-            self.shoulderPub(-1.0)
+            self.shoulderPub(shoulder_param+1.5)
             self.MoveBase(-0.5)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
@@ -213,7 +214,7 @@ class Manipulation:
         l3 = 0.36# Length of end effector(metre)
         x = 0.35# obj_cog.x - l3
         y = obj_cog.z - l0
-        self.MoveBase(-0.4)#0.7
+        self.MoveBase(-0.4)
         data1 =  x*x+y*y+l1*l1-l2*l2
         data2 =  2*l1*math.sqrt(x*x+y*y)
         print 'y : ', y
@@ -223,19 +224,23 @@ class Manipulation:
             retry_cmd.data = 'retry'
             self.retry_pub.publish(retry_cmd)
             return
-        shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1
+        '''
+        shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
         elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
         wrist_angle = -1*(shoulder_angle + elbow_angle)
-        print 'shoulder_angle : ', shoulder_angle*2.1, ' deg : ', math.degrees(shoulder_angle)
-        print 'elbow_angle    : ', elbow_angle*2.1, ' deg : ', math.degrees(elbow_angle)
+        shoulder_angle *= 2.1
+        elbow_angle *= 2.1
+        print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
+        print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
         print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
         self.manipulationController(shoulder_angle*2.1, elbow_angle*2.1, wrist_angle)
         '''
-        ### kimeuchi
-        self.manipulationController(-1.07115820647, 2.3719040394, -0.619402777586)
+        ### 決め打ち用
+        shoulder_angle = -1.07115820647
+        elbow_angle = 2.3719040394
+        wrist_angle = -0.619402777586
+        self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
         ###
-        rospy.sleep(0.1)
-        '''
         rospy.sleep(3.0)
         move_range = (0.17+obj_cog.x+0.15-(x+0.2))*2.5
         self.MoveBase(move_range*0.7)
@@ -243,7 +248,7 @@ class Manipulation:
         self.MoveBase(move_range*0.3)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(2.0)
-        self.shoulderPub(-1.0)
+        self.shoulderPub(shoulder_angle+0.5)
         self.MoveBase(-0.6)
         self.shoulderPub(0.7)
         arm_change_cmd.data = 'carry'
