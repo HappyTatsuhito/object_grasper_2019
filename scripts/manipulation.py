@@ -22,6 +22,7 @@ class Manipulation:
         self.grasp_res_pub = rospy.Publisher('/object/grasp_res',Bool,queue_size = 1)
         self.changing_pose_res_pub = rospy.Publisher('/arm/changing_pose_res',Bool,queue_size = 1)
         self.retry_pub = rospy.Publisher('/object/grasp_req',String,queue_size = 1)
+        self.navigation_place_sub = rospy.Subscriber('/navigation/move_place',String,self.NavigationPlace)
 
         #Definition of Moters    
         self.m0_sub = rospy.Subscriber('/m0_controller/state',JointState,self.M0StateCB)
@@ -62,6 +63,7 @@ class Manipulation:
         self.m4_is_moving = False
         self.m4_velocity = 0.00
         self.front_laser_dist = 999.9
+        self.navigation_place = 'None'
 
     def ChangePoseReqCB(self,cmd):
         print 'change arm command :', cmd.data
@@ -87,7 +89,33 @@ class Manipulation:
             arm_change_cmd.data = 'carry'
             self.ChangePoseReqCB(arm_change_cmd)
         elif cmd.data == 'place':
-            self.MoveBase(-0.4)
+#            self.MoveBase(-0.4)
+            if self.navigation_place == 'Drawer':
+                y = 0.65-0.75
+                x = 0.35
+                print 'y1 : ', y
+            elif self.navigation_place == 'Cupboard':
+                y = 0.81-0.75
+                x = 0.35
+                print 'y2 : ', y
+            elif self.navigation_place == 'Couch':
+                y = 0.50-0.75
+                x = 0.3
+                print 'y3 : ', y
+            else :
+                y = 0.60-0.86
+                x = 0.35
+            l1 = 0.24# Length from shoulder to elbow(metre)
+            l2 = 0.20# Length from elbow to wrist(metre)
+            l3 = 0.36# Length of end effector(metre)
+            shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
+            elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
+            wrist_angle = -1*(shoulder_angle + elbow_angle)
+            shoulder_angle *= 2.1
+            elbow_angle *= 2.1
+            self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
+            self.MoveBase(0.6)
+            '''
             wrist_param = -0.7
             self. wristPub(wrist_param)
             while self.m3_is_moving and not rospy.is_shutdown():
@@ -130,11 +158,12 @@ class Manipulation:
                 if angle > 1.5:
                     break
                 rospy.sleep(0.1)
+            '''
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(1.0)
-            self.MoveBase(-0.15)
-            self.shoulderPub(shoulder_param+1.5)
-            self.MoveBase(-0.5)
+            self.MoveBase(-0.3)
+            self.shoulderPub(shoulder_param+0.5)
+            self.MoveBase(-0.8)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
             self.ChangePoseReqCB(arm_change_cmd)
@@ -169,7 +198,7 @@ class Manipulation:
         #obj_cog.z -= 0.015
         print obj_cog
         if math.isnan(obj_cog.x):
-            self.MoveBase(0.3)
+            self.MoveBase(0.6)
             retry_cmd = String()
             retry_cmd.data = 'retry'
             self.retry_pub.publish(retry_cmd)
@@ -182,11 +211,11 @@ class Manipulation:
             #revolve to object
             cmd = Twist()
             cmd.linear.x = 0
-            cmd.angular.z = obj_angle * 3.0
-            if 0 < cmd.angular.z  and cmd.angular.z < 0.5:
-                cmd.angular.z = 0.5
-            elif 0 > cmd.angular.z and cmd.angular.z > -0.5:
-                cmd.angular.z = -0.5
+            cmd.angular.z = obj_angle * 4.0
+            if 0 < cmd.angular.z  and cmd.angular.z < 0.85:
+                cmd.angular.z = 0.85
+            elif 0 > cmd.angular.z and cmd.angular.z > -0.85:
+                cmd.angular.z = -0.85
             print 'cmd.angular.z : ', cmd.angular.z
             self.cmd_vel_pub.publish(cmd)
             time.sleep(3)
@@ -198,9 +227,9 @@ class Manipulation:
             print 'finish roll'
             return
         if obj_cog.x < 0.6 or obj_cog.x > 0.7:
-            move_range = (obj_cog.x-0.65)*2.5
-            if abs(move_range) < 0.1:
-                move_range = int(move_range/abs(move_range))*0.15
+            move_range = (obj_cog.x-0.65)*2.0
+            if abs(move_range) < 0.5:
+                move_range = int(move_range/abs(move_range))*0.5
             print move_range
             self.MoveBase(move_range)
             retry_cmd = String()
@@ -213,8 +242,20 @@ class Manipulation:
         l2 = 0.20# Length from elbow to wrist(metre)
         l3 = 0.36# Length of end effector(metre)
         x = 0.35# obj_cog.x - l3
-        y = obj_cog.z - l0
-        self.MoveBase(-0.4)
+        #y = obj_cog.z - l0
+        if self.navigation_place == 'Drawer':
+            y = 0.90-0.65
+            x = 0.35
+        elif self.navigation_place == 'Cupboard':
+            y = 0.77-0.65
+            x = 0.37
+        elif self.navigation_place == 'Couch':
+            y = 0.46-0.65
+            x = 0.30
+        else :
+            y = obj_cog.z - l0
+            x = 0.35
+        self.MoveBase(-0.6)
         data1 =  x*x+y*y+l1*l1-l2*l2
         data2 =  2*l1*math.sqrt(x*x+y*y)
         print 'y : ', y
@@ -224,7 +265,6 @@ class Manipulation:
             retry_cmd.data = 'retry'
             self.retry_pub.publish(retry_cmd)
             return
-        '''
         shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
         elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
         wrist_angle = -1*(shoulder_angle + elbow_angle)
@@ -241,8 +281,9 @@ class Manipulation:
         wrist_angle = -0.619402777586
         self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
         ###
+        '''
         rospy.sleep(3.0)
-        move_range = (0.17+obj_cog.x+0.15-(x+0.2))*2.5
+        move_range = (0.17+obj_cog.x+0.15-(x+0.2))*3.1
         self.MoveBase(move_range*0.7)
         rospy.sleep(0.4)
         self.MoveBase(move_range*0.3)
@@ -361,6 +402,9 @@ class Manipulation:
     def LaserCB(self,laser_scan):
         self.front_laser_dist = laser_scan.ranges[360]
         #print self.front_laser_dist
+
+    def NavigationPlace(self,res):
+        self.navigation_place = res.data
 
 if __name__ == '__main__':
     rospy.init_node('Manipulation',anonymous=True)

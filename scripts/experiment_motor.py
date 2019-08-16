@@ -14,6 +14,7 @@ class Manipulation:
         self.elbow_sub = rospy.Subscriber('/elbow_req',Float64,self.elbowCB)
         self.wrist_sub = rospy.Subscriber('/wrist_req',Float64,self.wristCB)
         self.endeffector_sub = rospy.Subscriber('/endeffector_req',Bool,self.endeffectorCB)
+        #self.position_sub = rospy.Subscriber('/position_req',,self.positionCB)
         self.m0_sub = rospy.Subscriber('/m0_controller/state',JointState,self.M0StateCB)
         self.m1_sub = rospy.Subscriber('/m1_controller/state',JointState,self.M1StateCB)
         self.m2_sub = rospy.Subscriber('/m2_controller/state',JointState,self.M2StateCB)
