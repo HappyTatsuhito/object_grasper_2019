@@ -35,6 +35,7 @@ class Manipulation:
         self.m2_pub = rospy.Publisher('/m2_controller/command',Float64,queue_size = 1)
         self.m3_pub = rospy.Publisher('/m3_controller/command',Float64,queue_size = 1)
         self.m4_pub = rospy.Publisher('/m4_controller/command',Float64,queue_size = 1)
+        self.m6_pub = rospy.Publisher('/m6_controller/command',Float64,queue_size = 1)
         self.laser_sub = rospy.Subscriber('/scan',LaserScan,self.LaserCB)
 
         #Define each moter origin
@@ -81,7 +82,8 @@ class Manipulation:
                 pass
             rospy.sleep(1.0)
             wrist_error = abs(self.m3_error)
-            while wrist_error - abs(self.m3_error) < 0.009 and not rospy.is_shutdown():
+            give_time = time.time()
+            while wrist_error - abs(self.m3_error) < 0.009 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
                 pass
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             self.changing_pose_res_pub.publish(True)
@@ -90,18 +92,15 @@ class Manipulation:
             self.ChangePoseReqCB(arm_change_cmd)
         elif cmd.data == 'place':
 #            self.MoveBase(-0.4)
-            if self.navigation_place == 'Drawer':
-                y = 0.65-0.75
+            if self.navigation_place == 'Drawer' or self.navigation_place == 'Shelf':
+                y = 0.61+0.03-0.65
+                x = 0.37
+            elif self.navigation_place == 'Cupboard' or self.navigation_place == 'Table':
+                y = 0.77+0.03-0.65
                 x = 0.35
-                print 'y1 : ', y
-            elif self.navigation_place == 'Cupboard':
-                y = 0.81-0.75
+            elif self.navigation_place == 'Couch' or self.navigation_place == 'Bin' or self.navigation_place == 'Sofa' or self.navigation_place == 'Chair':
+                y = 0.46+0.03-0.65
                 x = 0.35
-                print 'y2 : ', y
-            elif self.navigation_place == 'Couch':
-                y = 0.50-0.75
-                x = 0.3
-                print 'y3 : ', y
             else :
                 y = 0.60-0.86
                 x = 0.35
@@ -115,6 +114,9 @@ class Manipulation:
             elbow_angle *= 2.1
             self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
             self.MoveBase(0.6)
+            ###
+            self.manipulationController(shoulder_angle, elbow_angle-0.4, wrist_angle+0.2)
+            ###
             '''
             wrist_param = -0.7
             self. wristPub(wrist_param)
@@ -162,7 +164,7 @@ class Manipulation:
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(1.0)
             self.MoveBase(-0.3)
-            self.shoulderPub(shoulder_param+0.5)
+            self.shoulderPub(shoulder_angle+0.5)
             self.MoveBase(-0.8)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
@@ -170,6 +172,8 @@ class Manipulation:
             arm_change_flg = Bool()
             arm_change_flg.data = True
             self.changing_pose_res_pub.publish(arm_change_flg)
+        elif cmd.data == 'test':
+            self.MoveBase(0.6)
         else :
             print 'No such command.'
                         
@@ -205,6 +209,31 @@ class Manipulation:
             return
         obj_angle = math.atan2(obj_cog.y,obj_cog.x)
         print 'obj_angle : ', obj_angle
+        ###
+        l0 = 0.85# Height from ground to shoulder(metre)
+        l1 = 0.24# Length from shoulder to elbow(metre)
+        l2 = 0.20# Length from elbow to wrist(metre)
+        l3 = 0.36# Length of end effector(metre)
+        #x = 0.35# obj_cog.x - l3
+        #y = obj_cog.z - l0
+        if self.navigation_place == 'Couch' or self.navigation_place == 'Bin' or self.navigation_place == 'Sofa' or self.navigation_place == 'Chair':
+            y = 0.46-0.65
+            x = 0.30
+            m6_angle = -0.08
+        elif self.navigation_place == 'Cupboard' or self.navigation_place == 'Table':
+            y = 0.77-0.65
+            x = 0.37
+            m6_angle = 0.0
+        elif self.navigation_place == 'Drawer'or self.navigation_place == 'Shelf':
+            y = 0.90-0.65
+            x = 0.35
+            m6_angle = 0.1
+        else :
+            y = obj_cog.z - l0
+            x = 0.35
+            m6_angle = -0.07
+        self.m6_pub.publish(m6_angle)
+        ###
         if obj_angle < -0.05 or 0.05 <obj_angle:
             print 'There is not object in front.'
             #move kobuki
@@ -237,24 +266,6 @@ class Manipulation:
             self.retry_pub.publish(retry_cmd)
             print 'moving'
             return
-        l0 = 0.85# Height from ground to shoulder(metre)
-        l1 = 0.24# Length from shoulder to elbow(metre)
-        l2 = 0.20# Length from elbow to wrist(metre)
-        l3 = 0.36# Length of end effector(metre)
-        x = 0.35# obj_cog.x - l3
-        #y = obj_cog.z - l0
-        if self.navigation_place == 'Drawer':
-            y = 0.90-0.65
-            x = 0.35
-        elif self.navigation_place == 'Cupboard':
-            y = 0.77-0.65
-            x = 0.37
-        elif self.navigation_place == 'Couch':
-            y = 0.46-0.65
-            x = 0.30
-        else :
-            y = obj_cog.z - l0
-            x = 0.35
         self.MoveBase(-0.6)
         data1 =  x*x+y*y+l1*l1-l2*l2
         data2 =  2*l1*math.sqrt(x*x+y*y)
