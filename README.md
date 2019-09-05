@@ -6,15 +6,22 @@ RoboCup2019に向けて開発したマニピュレータを制御するパッケ
 モータを制御できるようにセットアップを行います。  
 
     $ roslaunch manipulation motor_setup.launch  
-物体把持を行う場合は  
-
-    $ rosrun manipulation manipulation.py  
-を実行して下さい。(他パッケージは省略)  
 アームの動作実験、モータの調整を行う場合は  
 
     $ rosrun manipulation echo_motor_state.sh  
 	$ rosrun manipulation experiment_motor.py  
 を実行して下さい。echo_motor_state.shはモータIDの0から4までのモータの状態を表示します。  
+
+物体把持を行う場合は  
+
+    $ rosrun manipulation manipulation.py  
+を実行して下さい。(他パッケージは省略)  
+
+タスクに合ったマニピュレーションノードを立ち上げて下さい。  
+大抵のタスクは
+
+    $ rosrun manipulation general_manipulation.py  
+で物体把持を行えます。  
 
 # 入出力  
 ### manipulation.py：  

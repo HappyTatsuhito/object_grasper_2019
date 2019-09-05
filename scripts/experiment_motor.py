@@ -20,17 +20,20 @@ class Experiment(object):
         self.m2_sub = rospy.Subscriber('/m2_controller/state',JointState,self.M2StateCB)
         self.m3_sub = rospy.Subscriber('/m3_controller/state',JointState,self.M3StateCB)
         self.m4_sub = rospy.Subscriber('/m4_controller/state',JointState,self.M4StateCB)
-        self.m0_pub = rospy.Publisher('m0_controller/command',Float64,queue_size = 1)
-        self.m1_pub = rospy.Publisher('m1_controller/command',Float64,queue_size = 1)
-        self.m2_pub = rospy.Publisher('m2_controller/command',Float64,queue_size = 1)
-        self.m3_pub = rospy.Publisher('m3_controller/command',Float64,queue_size = 1)
-        self.m4_pub = rospy.Publisher('m4_controller/command',Float64,queue_size = 1)
+        self.m0_pub = rospy.Publisher('m0_controller/command',Float64,queue_size=1)
+        self.m1_pub = rospy.Publisher('m1_controller/command',Float64,queue_size=1)
+        self.m2_pub = rospy.Publisher('m2_controller/command',Float64,queue_size=1)
+        self.m3_pub = rospy.Publisher('m3_controller/command',Float64,queue_size=1)
+        self.m4_pub = rospy.Publisher('m4_controller/command',Float64,queue_size=1)
+        self.m6_pub = rospy.Publisher('m6_controller/command',Float64,queue_size=1)
 
+        # instance variables
         self.M0_ORIGIN_ANGLE = -0.562459622225
         self.M1_ORIGIN_ANGLE = 0.628932123033
         self.M2_ORIGIN_ANGLE = 0.317022696163
         self.M3_ORIGIN_ANGLE = 0.0
         self.M4_ORIGIN_ANGLE = 0.5
+        self.M6_ORIGIN_ANGLE = 0.3
 
         self.m0_current_pos = 0.00
         self.m0_error = 0.00

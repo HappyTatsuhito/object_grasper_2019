@@ -9,32 +9,27 @@ from std_msgs.msg import Bool,Float64,String
 from dynamixel_msgs.msg import JointState
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
-from sensor_msgs.msg import LaserScan
+#from sensor_msgs.msg import LaserScan
 from experiment_motor import Experiment
 
 class Manipulation(Experiment):
     def __init__(self):
         super(Manipulation,self).__init__()
-        self.xyz_centroid_sub = rospy.Subscriber('/object/xyz_centroid',Point,self.localizeObjectCB)
-        self.changing_pose_req_sub = rospy.Subscriber('/arm/changing_pose_req',String,self.ChangePoseReqCB)
+        self.xyz_centroid_sub = rospy.Subscriber('/object/xyz_centroid',Point,self.main)
+        self.changing_pose_req_sub = rospy.Subscriber('/arm/changing_pose_req',String,self.changePoseReqCB)
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size = 1)
         self.grasp_res_pub = rospy.Publisher('/object/grasp_res',Bool,queue_size = 1)
         self.changing_pose_res_pub = rospy.Publisher('/arm/changing_pose_res',Bool,queue_size = 1)
         self.retry_pub = rospy.Publisher('/object/grasp_req',String,queue_size = 1)
-        self.navigation_place_sub = rospy.Subscriber('/navigation/move_place',String,self.NavigationPlace)
-        self.laser_sub = rospy.Subscriber('/scan',LaserScan,self.LaserCB)
+        #self.laser_sub = rospy.Subscriber('/scan',LaserScan,self.laserCB)
 
-        #Definition of Moters    
-        self.m2_pub = rospy.Publisher('/m2_controller/command',Float64,queue_size = 1)
-        self.m3_pub = rospy.Publisher('/m3_controller/command',Float64,queue_size = 1)
-        self.m4_pub = rospy.Publisher('/m4_controller/command',Float64,queue_size = 1)
-        self.m6_pub = rospy.Publisher('/m6_controller/command',Float64,queue_size = 1)
+        # instance variables
+        self.search_count = 0
+        self.grasp_count = 0
+        #self.front_laser_dist = 0.00
 
-        self.front_laser_dist = 0.00
-        self.navigation_place = 'None'
-
-    def ChangePoseReqCB(self,cmd):
-        print 'change arm command :', cmd.data
+    def changePoseReqCB(self,cmd):
+        print 'Change arm command :', cmd.data
         if cmd.data == 'carry':
             shoulder_param = -3.0
             elbow_param = 2.6
@@ -56,7 +51,7 @@ class Manipulation(Experiment):
             self.changing_pose_res_pub.publish(True)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
-            self.ChangePoseReqCB(arm_change_cmd)
+            self.changePoseReqCB(arm_change_cmd)
         elif cmd.data == 'place':
             self.moveBase(-0.4)
             wrist_param = -0.7
@@ -109,10 +104,8 @@ class Manipulation(Experiment):
             self.moveBase(-0.8)
             arm_change_cmd = String()
             arm_change_cmd.data = 'carry'
-            self.ChangePoseReqCB(arm_change_cmd)
-            arm_change_flg = Bool()
-            arm_change_flg.data = True
-            self.changing_pose_res_pub.publish(arm_change_flg)
+            self.changePoseReqCB(arm_change_cmd)
+            self.changing_pose_res_pub.publish(True)
         else :
             print 'No such command.'
                         
@@ -132,21 +125,26 @@ class Manipulation(Experiment):
         cmd.angular.z = 0
         self.cmd_vel_pub.publish(cmd)
 
-    def localizeObjectCB(self,obj_cog):
-        print '-- localize object --'
+    def localizeObject(self,obj_cog):
+        print '\n-- Localize Object --'
         arm_change_cmd = String()
         arm_change_cmd.data = 'carry'
-        self.ChangePoseReqCB(arm_change_cmd)
+        self.changePoseReqCB(arm_change_cmd)
         self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
         obj_cog.y += 0.08 # calibrate RealSenseCamera d435
         #obj_cog.z -= 0.015
         print obj_cog
         if math.isnan(obj_cog.x):
-            self.moveBase(0.6)
-            retry_cmd = String()
-            retry_cmd.data = 'retry'
-            self.retry_pub.publish(retry_cmd)
-            return
+            if self.search_count == 3:
+                self.grasp_res_pub.publish(False)
+                return False
+            else:
+                self.search_count += 1
+                move_range = -1*((self.search_count%4)/2)*1.2+0.6
+                self.moveBase(move_range)
+                self.retry_pub.publish('retry')
+                return False
+        self.search_count = 0
         obj_angle = math.atan2(obj_cog.y,obj_cog.x)
         print 'obj_angle : ', obj_angle
         if obj_angle < -0.05 or 0.05 <obj_angle:
@@ -163,31 +161,28 @@ class Manipulation(Experiment):
             time.sleep(3)
             cmd.angular.z = 0
             self.cmd_vel_pub.publish(cmd)
-            retry_cmd = String()
-            retry_cmd.data = 'retry'
-            self.retry_pub.publish(retry_cmd)
-            print 'finish roll'
-            return
+            self.retry_pub.publish('retry')
+            print 'Finish roll'
+            return False
         elif obj_cog.x < 0.6 or obj_cog.x > 0.7:
             move_range = (obj_cog.x-0.65)*2.0
             if abs(move_range) < 0.5:
                 move_range = int(move_range/abs(move_range))*0.5
             print 'move_range : ', move_range
             self.moveBase(move_range)
-            retry_cmd = String()
-            retry_cmd.data = 'retry'
-            self.retry_pub.publish(retry_cmd)
-            print 'finish move'
-            return
+            self.retry_pub.publish('retry')
+            print 'Finish move'
+            return False
         else :
-            self.graspObject(obj_cog)
+            return True
 
     def graspObject(self, obj_cog):
-        print '-- grasp object --'
+        print '-- Grasp Object --'
         self.moveBase(-0.6)
-        x = 0.73# obj_cog.x - l3
         y = obj_cog.z
-        self.inverseKinematics(x, y)
+        x = (y-0.75)/10+0.5 #0.5
+        s_a, e_a, w_a = self.inverseKinematics(x, y)
+        self.manipulationController(s_a, e_a, w_a)
         '''
         ### 決め打ち用
         shoulder_angle = -1.07115820647
@@ -208,47 +203,49 @@ class Manipulation(Experiment):
         self.shoulderPub(0.7)
         arm_change_cmd = String()
         arm_change_cmd.data = 'carry'
-        self.ChangePoseReqCB(arm_change_cmd)
+        self.changePoseReqCB(arm_change_cmd)
         rospy.sleep(4.0)
         if grasp_flg :
             grasp_flg = self.m4_error > 0.03
-            print 'grasp flg : ', grasp_flg
         if grasp_flg :
             self.grasp_res_pub.publish(grasp_flg)
             print 'Successfully grasped the object!'
+        elif self.grasp_count == 3:
+            self.grasp_res_pub.publish(False)
+            print 'Failed to grasp the object.'
         else:
-            retry_cmd = String()
-            retry_cmd.data = 'retry'
-            self.retry_pub.publish(retry_cmd)
+            self.grasp_count += 1
+            self.retry_pub.publish('retry')
             print 'Failed to grasp the object.'
             return
         self.moveBase(-0.4)
-        print 'finish'
+        self.grasp_count = 0
+        print 'Finish manipulation'
+        return
 
     def inverseKinematics(self, x, y):
         l0 = 0.85# Height from ground to shoulder(metre)
         l1 = 0.24# Length from shoulder to elbow(metre)
         l2 = 0.20# Length from elbow to wrist(metre)
-        l3 = 0.36# Length of end effector(metre)
+        l3 = 0.15# Length of end effector(metre)
         x -= l3
         y -= l0
         data1 =  x*x+y*y+l1*l1-l2*l2
         data2 =  2*l1*math.sqrt(x*x+y*y)
         if data1 > data2:
             print 'I can not move arm.'
-            retry_cmd = String()
-            retry_cmd.data = 'retry'
-            self.retry_pub.publish(retry_cmd)
+            self.retry_pub.publish('retry')
             return
         shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
         elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
         wrist_angle = -1*(shoulder_angle + elbow_angle)
         shoulder_angle *= 2.1
         elbow_angle *= 2.1
-        print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
-        print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
-        print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
-        self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
+        print '    shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
+        print '    elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
+        print '    wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
+        #self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
+        return shoulder_angle, elbow_angle, wrist_angle
         
     def manipulationController(self, shoulder_param, elbow_param, wrist_param):
         thread_shoulder = threading.Thread(target=self.shoulderPub, args=(shoulder_param,))
@@ -260,12 +257,17 @@ class Manipulation(Experiment):
         rospy.sleep(0.2)
         thread_shoulder.start()
 
-    def LaserCB(self,laser_scan):
+    '''
+    def laserCB(self,laser_scan):
         self.front_laser_dist = laser_scan.ranges[360]
         #print self.front_laser_dist
+    '''
 
-    def NavigationPlace(self,res):
-        self.navigation_place = res.data
+    def main(self,obj_cog):
+        localize_flg = self.localizeObject(obj_cog)
+        print localize_flg
+        if localize_flg:
+            self.graspObject(obj_cog)
 
 if __name__ == '__main__':
     rospy.init_node('Manipulation',anonymous=True)
