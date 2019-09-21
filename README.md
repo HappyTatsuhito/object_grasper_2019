@@ -33,7 +33,7 @@ RoboCup2019に向けて開発したマニピュレータを制御するパッケ
   |アーム変形(give)|/arm/changing_pose_req|String(give)|/arm/changing_pose_res|Bool(True)|  
   |アーム変形(place)|/arm/changing_pose_req|String(place)|/arm/changing_pose_res|Bool(True)|  
 
-### experiment.py:  
+### experiment_motor.py:  
 
   |動作 |topic名 |入力内容 |  
   |:----------:|:----------:|:-----------:|  
