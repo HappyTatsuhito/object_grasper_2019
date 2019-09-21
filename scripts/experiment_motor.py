@@ -116,11 +116,11 @@ class Experiment(object):
             rospy.sleep(0.09)
             while self.m4_velocity >= 2.0:
                 pass
-            if angle < -0.3:
+            if angle < -0.6:
                 grasp_flg = False
                 break;
         rospy.sleep(0.1)
-        self.m4_pub.publish(self.m4_current_pos -  0.06)
+        self.m4_pub.publish(self.m4_current_pos -  0.05)
         return grasp_flg
         
     def M0StateCB(self,state):
@@ -152,6 +152,6 @@ class Experiment(object):
         self.m4_velocity = abs(state.velocity)
 
 if __name__ == '__main__':
-    rospy.init_node('ExperimentMotor',anonymous=True)
+    rospy.init_node('ExperimentMotor')
     experiment = Experiment()
     rospy.spin()

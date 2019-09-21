@@ -9,16 +9,16 @@ from std_msgs.msg import Bool,Float64,String
 from dynamixel_msgs.msg import JointState
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
-from manipulation import Manipulation
+from object_grasper import ObjectGrasper
 
-class BFManipulation(Manipulation):
+class GeneralGrasper(ObjectGrasper):
     def __init__(self):
-        super(BFManipulation,self).__init__()
+        super(GeneralGrasper,self).__init__()
         self.navigation_place_sub = rospy.Subscriber('/navigation/move_place',String,self.navigationPlaceCB)
 
         # instance variables
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.90, 'Zwei':0.77, 'Drei':0.44}
+        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.67, 'Drei':0.69}
 
     def changePoseReqCB(self,cmd):
         print 'Change arm command :', cmd.data
@@ -26,12 +26,12 @@ class BFManipulation(Manipulation):
             shoulder_param = -3.0
             elbow_param = 2.6
             wrist_param = 1.4
-            self.manipulationController(shoulder_param, elbow_param, wrist_param)
+            self.armController(shoulder_param, elbow_param, wrist_param)
         elif cmd.data == 'give':
             shoulder_param = -1.2
             elbow_param = 2.6
             wrist_param = -0.7
-            self.manipulationController(shoulder_param, elbow_param, wrist_param)
+            self.armController(shoulder_param, elbow_param, wrist_param)
             while self.m3_is_moving and not rospy.is_shutdown():
                 pass
             rospy.sleep(1.0)
@@ -65,7 +65,7 @@ class BFManipulation(Manipulation):
             self.elbowPub(elbow_param)
             self.moveBase(0.6)
             rospy.sleep(0.4)
-            self.manipulationController(shoulder_param, elbow_param-0.4, wrist_param+0.2)
+            self.armController(shoulder_param, elbow_param-0.4, wrist_param+0.2)
             rospy.sleep(0.2)
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(0.5)
@@ -90,7 +90,7 @@ class BFManipulation(Manipulation):
             y = self.target_place[self.navigation_place]
         x = (y-0.75)/10+0.5 #0.5
         s_a, e_a, w_a = self.inverseKinematics(x, y)
-        self.manipulationController(s_a, e_a, w_a)
+        self.armController(s_a, e_a, w_a)
         rospy.sleep(3.0)
         move_range = (0.17+obj_cog.x+0.15-(x+0.2))*3.1
         self.moveBase(move_range*0.7)
@@ -121,11 +121,11 @@ class BFManipulation(Manipulation):
         self.moveBase(-0.4)
         self.grasp_count = 0
         self.navigation_place = 'Null'
-        print 'Finish manipulation'
+        print 'Finish grasp'
         return
         
     def navigationPlaceCB(self,res):
-        target_dic = {'Eins':['Drawer', 'Shelf'], 'Zwei':['Cupboad', 'Table'], 'Drei':['Couch', 'Bin', 'Sofa', 'Chair']}
+        target_dic = {'Eins':['desk'], 'Zwei':['cupboad'], 'Drei':['shelf']}
         for key,value in target_dic.items():
             if res.data in value:
                 self.navigation_place = key
@@ -142,6 +142,6 @@ class BFManipulation(Manipulation):
             self.graspObject(obj_cog)
                 
 if __name__ == '__main__':
-    rospy.init_node('BFManipulation',anonymous=True)
-    manipulation = BFManipulation()
+    rospy.init_node('General_Grasper',anonymous=True)
+    grasper = GeneralGrasper()
     rospy.spin()

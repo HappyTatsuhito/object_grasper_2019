@@ -12,9 +12,9 @@ from geometry_msgs.msg import Point
 #from sensor_msgs.msg import LaserScan
 from experiment_motor import Experiment
 
-class Manipulation(Experiment):
+class ObjectGrasper(Experiment):
     def __init__(self):
-        super(Manipulation,self).__init__()
+        super(ObjectGrasper,self).__init__()
         self.xyz_centroid_sub = rospy.Subscriber('/object/xyz_centroid',Point,self.main)
         self.changing_pose_req_sub = rospy.Subscriber('/arm/changing_pose_req',String,self.changePoseReqCB)
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size = 1)
@@ -34,12 +34,12 @@ class Manipulation(Experiment):
             shoulder_param = -3.0
             elbow_param = 2.6
             wrist_param = 1.4
-            self.manipulationController(shoulder_param, elbow_param, wrist_param)
+            self.armController(shoulder_param, elbow_param, wrist_param)
         elif cmd.data == 'give':
             shoulder_param = -1.2
             elbow_param = 2.6
             wrist_param = -0.7
-            self.manipulationController(shoulder_param, elbow_param, wrist_param)
+            self.armController(shoulder_param, elbow_param, wrist_param)
             while self.m3_is_moving and not rospy.is_shutdown():
                 pass
             rospy.sleep(1.0)
@@ -87,7 +87,7 @@ class Manipulation(Experiment):
                 angle += 0.03
                 elbow_angle = elbow_current + angle*2
                 wrist_angle = wrist_current + angle
-                #self.manipulationController(shoulder_param, elbow_param, wrist_param)
+                #self.armController(shoulder_param, elbow_param, wrist_param)
                 self.m2_pub.publish(elbow_angle)
                 rospy.sleep(0.1)
                 self.m3_pub.publish(wrist_angle)
@@ -182,13 +182,13 @@ class Manipulation(Experiment):
         y = obj_cog.z
         x = (y-0.75)/10+0.5 #0.5
         s_a, e_a, w_a = self.inverseKinematics(x, y)
-        self.manipulationController(s_a, e_a, w_a)
+        self.armController(s_a, e_a, w_a)
         '''
         ### 決め打ち用
         shoulder_angle = -1.07115820647
         elbow_angle = 2.3719040394
         wrist_angle = -0.619402777586
-        self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
+        self.armController(shoulder_angle, elbow_angle, wrist_angle)
         ###
         '''
         rospy.sleep(3.0)
@@ -220,7 +220,7 @@ class Manipulation(Experiment):
             return
         self.moveBase(-0.4)
         self.grasp_count = 0
-        print 'Finish manipulation'
+        print 'Finish grasp'
         return
 
     def inverseKinematics(self, x, y):
@@ -241,13 +241,13 @@ class Manipulation(Experiment):
         wrist_angle = -1*(shoulder_angle + elbow_angle)
         shoulder_angle *= 2.1
         elbow_angle *= 2.1
-        print '    shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
-        print '    elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
-        print '    wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
-        #self.manipulationController(shoulder_angle, elbow_angle, wrist_angle)
+        print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
+        print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
+        print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
+        #self.armController(shoulder_angle, elbow_angle, wrist_angle)
         return shoulder_angle, elbow_angle, wrist_angle
         
-    def manipulationController(self, shoulder_param, elbow_param, wrist_param):
+    def armController(self, shoulder_param, elbow_param, wrist_param):
         thread_shoulder = threading.Thread(target=self.shoulderPub, args=(shoulder_param,))
         thread_elbow = threading.Thread(target=self.elbowPub, args=(elbow_param,))
         thread_wrist = threading.Thread(target=self.wristPub, args=(wrist_param,))
@@ -265,11 +265,10 @@ class Manipulation(Experiment):
 
     def main(self,obj_cog):
         localize_flg = self.localizeObject(obj_cog)
-        print localize_flg
         if localize_flg:
             self.graspObject(obj_cog)
 
 if __name__ == '__main__':
-    rospy.init_node('Manipulation',anonymous=True)
-    manipulation = Manipulation()
+    rospy.init_node('Object_Grasper')
+    grasper = ObjectGrasper()
     rospy.spin()
