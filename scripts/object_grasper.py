@@ -181,8 +181,10 @@ class ObjectGrasper(Experiment):
         self.moveBase(-0.6)
         y = obj_cog.z
         x = (y-0.75)/10+0.5 #0.5
-        s_a, e_a, w_a = self.inverseKinematics(x, y)
-        self.armController(s_a, e_a, w_a)
+        joint_angle = self.inverseKinematics(x, y)
+        if not joint_angle:
+            return
+        self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         '''
         ### 決め打ち用
         shoulder_angle = -1.07115820647
@@ -198,7 +200,7 @@ class ObjectGrasper(Experiment):
         self.moveBase(move_range*0.3)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(2.0)
-        self.shoulderPub(-0.5)
+        self.shoulderPub(joint_angle[0]+0.5)
         self.moveBase(-0.6)
         self.shoulderPub(0.7)
         arm_change_cmd = String()
@@ -235,7 +237,7 @@ class ObjectGrasper(Experiment):
         if data1 > data2:
             print 'I can not move arm.'
             self.retry_pub.publish('retry')
-            return
+            return False
         shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
         elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
         wrist_angle = -1*(shoulder_angle + elbow_angle)
@@ -245,7 +247,7 @@ class ObjectGrasper(Experiment):
         print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
         print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
         #self.armController(shoulder_angle, elbow_angle, wrist_angle)
-        return shoulder_angle, elbow_angle, wrist_angle
+        return [shoulder_angle, elbow_angle, wrist_angle]
         
     def armController(self, shoulder_param, elbow_param, wrist_param):
         thread_shoulder = threading.Thread(target=self.shoulderPub, args=(shoulder_param,))

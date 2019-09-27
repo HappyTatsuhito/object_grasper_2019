@@ -52,23 +52,24 @@ class GeneralGrasper(ObjectGrasper):
             x = (y-0.75)/10+0.5
             print 'x : ', x
             print 'y : ', y
-            s_p, e_p, wrist_param = self.inverseKinematics(x, y)
-            self. wristPub(wrist_param)
+            joint_angle = self.inverseKinematics(x, y)
+            if not joint_angle:
+                return
+            self. wristPub(joint_angle[2])
             while self.m3_is_moving and not rospy.is_shutdown():
                 pass
             rospy.sleep(0.1)
             m3_angle = self.m3_current_pos
             m3_diff = self.m3_error
-            shoulder_param = -1*(1.3+m3_angle)*2.1-(m3_diff+0.01)*32
+            shoulder_param = -1*(joint_angle[1]/2.1+m3_angle)*2.1-(m3_diff+0.01)*32
             # -(m3_diff+0.025)*32：重さ補正
             rospy.sleep(0.2)
             self.shoulderPub(shoulder_param)
             rospy.sleep(0.2)
-            elbow_param = 2.6
-            self.elbowPub(elbow_param)
+            self.elbowPub(joint_angle[1])
             self.moveBase(0.6)
             rospy.sleep(0.4)
-            self.armController(shoulder_param, elbow_param-0.4, wrist_param+0.2)
+            self.armController(shoulder_param, joint_angle[1]-0.4, m3_angle+0.2)
             rospy.sleep(0.2)
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(0.5)
@@ -92,16 +93,22 @@ class GeneralGrasper(ObjectGrasper):
         else:
             y = self.target_place[self.navigation_place]+0.1
         x = (y-0.75)/10+0.5 #0.5
-        s_a, e_a, w_a = self.inverseKinematics(x, y)
-        self.armController(s_a, e_a, w_a)
+        joint_angle = self.inverseKinematics(x, y)
+        if not joint_angle:
+            return
+        self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         rospy.sleep(3.0)
         move_range = (0.17+obj_cog.x+0.15-(x+0.2))*3.1
         self.moveBase(move_range*0.7)
         rospy.sleep(0.3)
         self.moveBase(move_range*0.3)
         grasp_flg = self.endeffectorPub(True)
+        if not grasp_flg:
+            self.retry_pub.publish('retry')
+            print 'Failed to grasp the object.'
+            return
         rospy.sleep(2.0)
-        self.shoulderPub(-0.5)
+        self.shoulderPub(joint_angle[0]+0.5)
         self.moveBase(-0.6)
         self.shoulderPub(0.7)
         arm_change_cmd = String()
@@ -124,7 +131,6 @@ class GeneralGrasper(ObjectGrasper):
         self.moveBase(-0.4)
         self.grasp_count = 0
         self.navigation_place = 'Null'
-        print 'Finish grasp'
         return
         
     def navigationPlaceCB(self,res):
@@ -143,6 +149,7 @@ class GeneralGrasper(ObjectGrasper):
         localize_flg = self.localizeObject(obj_cog)
         if localize_flg:
             self.graspObject(obj_cog)
+        print 'Finish grasp'
                 
 if __name__ == '__main__':
     rospy.init_node('General_Grasper',anonymous=True)
