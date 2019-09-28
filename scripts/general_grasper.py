@@ -47,7 +47,7 @@ class GeneralGrasper(ObjectGrasper):
             print 'Finish giving\n'
         elif cmd.data == 'place':
             self.moveBase(-0.4)
-            y = self.target_place[self.navigation_place] + 0.2
+            y = self.target_place[self.navigation_place] + 0.1
             print self.navigation_place
             x = (y-0.75)/10+0.5
             print 'x : ', x
@@ -65,11 +65,10 @@ class GeneralGrasper(ObjectGrasper):
             # -(m3_diff+0.025)*32：重さ補正
             rospy.sleep(0.2)
             self.shoulderPub(shoulder_param)
-            rospy.sleep(0.2)
             self.elbowPub(joint_angle[1])
             self.moveBase(0.6)
             rospy.sleep(0.4)
-            self.armController(shoulder_param, joint_angle[1]-0.4, m3_angle+0.2)
+            self.armController(shoulder_param, joint_angle[1]-0.8, m3_angle+0.4)
             rospy.sleep(0.2)
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.sleep(0.5)
@@ -89,7 +88,7 @@ class GeneralGrasper(ObjectGrasper):
         print '-- Grasp Object --'
         self.moveBase(-0.6)
         if self.navigation_place == 'Null':
-            y = obj_cog.z
+            y = obj_cog.z+0.06
         else:
             y = self.target_place[self.navigation_place]+0.1
         x = (y-0.75)/10+0.5 #0.5
