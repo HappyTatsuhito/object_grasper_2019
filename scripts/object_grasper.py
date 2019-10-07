@@ -18,14 +18,12 @@ class ObjectGrasper(Experiment):
         self.xyz_centroid_sub = rospy.Subscriber('/object/xyz_centroid',Point,self.main)
         self.changing_pose_req_sub = rospy.Subscriber('/arm/changing_pose_req',String,self.changePoseReqCB)
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size = 1)
-        self.grasp_res_pub = rospy.Publisher('/object/grasp_res',Bool,queue_size = 1)
+        self.grasp_res_pub = rospy.Publisher('/object/manipulate/res',Bool,queue_size = 1)
         self.changing_pose_res_pub = rospy.Publisher('/arm/changing_pose_res',Bool,queue_size = 1)
-        self.retry_pub = rospy.Publisher('/object/grasp_req',String,queue_size = 1)
+        self.retry_pub = rospy.Publisher('/object/manipulate/retry',String,queue_size = 1)
         #self.laser_sub = rospy.Subscriber('/scan',LaserScan,self.laserCB)
 
         # instance variables
-        self.search_count = 0
-        self.grasp_count = 0
         #self.front_laser_dist = 0.00
 
     def changePoseReqCB(self,cmd):
@@ -135,16 +133,8 @@ class ObjectGrasper(Experiment):
         #obj_cog.z -= 0.015
         print obj_cog
         if math.isnan(obj_cog.x):
-            if self.search_count == 3:
                 self.grasp_res_pub.publish(False)
                 return False
-            else:
-                self.search_count += 1
-                move_range = -1*((self.search_count%4)/2)*1.2+0.6
-                self.moveBase(move_range)
-                self.retry_pub.publish('retry')
-                return False
-        self.search_count = 0
         obj_angle = math.atan2(obj_cog.y,obj_cog.x)
         print 'obj_angle : ', obj_angle
         if obj_angle < -0.05 or 0.05 <obj_angle:
@@ -161,18 +151,18 @@ class ObjectGrasper(Experiment):
             time.sleep(3)
             cmd.angular.z = 0
             self.cmd_vel_pub.publish(cmd)
-            self.retry_pub.publish('retry')
+            self.retry_pub.publish('Retry')
             print 'Finish roll'
-            return False
+            return 'Retry'
         elif obj_cog.x < 0.6 or obj_cog.x > 0.7:
             move_range = (obj_cog.x-0.65)*2.0
             if abs(move_range) < 0.5:
                 move_range = int(move_range/abs(move_range))*0.5
             print 'move_range : ', move_range
             self.moveBase(move_range)
-            self.retry_pub.publish('retry')
+            self.retry_pub.publish('Retry')
             print 'Finish move'
-            return False
+            return 'Retry'
         else :
             return True
 
@@ -183,7 +173,7 @@ class ObjectGrasper(Experiment):
         x = (y-0.75)/10+0.5 #0.5
         joint_angle = self.inverseKinematics(x, y)
         if not joint_angle:
-            return
+            return False
         self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         '''
         ### 決め打ち用
@@ -210,20 +200,11 @@ class ObjectGrasper(Experiment):
         if grasp_flg :
             grasp_flg = self.m4_error > 0.03
         if grasp_flg :
-            self.grasp_res_pub.publish(grasp_flg)
             print 'Successfully grasped the object!'
-        elif self.grasp_count == 3:
-            self.grasp_res_pub.publish(False)
-            print 'Failed to grasp the object.'
         else:
-            self.grasp_count += 1
-            self.retry_pub.publish('retry')
             print 'Failed to grasp the object.'
-            return
-        self.moveBase(-0.4)
-        self.grasp_count = 0
         print 'Finish grasp'
-        return
+        return grasp_flg
 
     def inverseKinematics(self, x, y):
         l0 = 0.75# Height from ground to shoulder(metre)
@@ -266,9 +247,14 @@ class ObjectGrasper(Experiment):
     '''
 
     def main(self,obj_cog):
+        grasp_flg = False
         localize_flg = self.localizeObject(obj_cog)
+        if localize_flg == 'Retry':
+            return
         if localize_flg:
-            self.graspObject(obj_cog)
+            grasp_flg = self.graspObject(obj_cog)
+        self.grasp_res_pub.publish(grasp_flg)
+        return
 
 if __name__ == '__main__':
     rospy.init_node('Object_Grasper')
