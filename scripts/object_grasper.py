@@ -215,20 +215,21 @@ class ObjectGrasper(Experiment):
         y -= l0
         data1 =  x*x+y*y+l1*l1-l2*l2
         data2 =  2*l1*math.sqrt(x*x+y*y)
-        if data1 > data2:
+        try:
+            shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
+            elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
+            wrist_angle = -1*(shoulder_angle + elbow_angle)
+            shoulder_angle *= 2.1
+            elbow_angle *= 2.1
+            print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
+            print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
+            print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
+            #self.armController(shoulder_angle, elbow_angle, wrist_angle)
+            return [shoulder_angle, elbow_angle, wrist_angle]
+        except ValueError:
             print 'I can not move arm.'
-            self.retry_pub.publish('retry')
+            self.retry_pub.publish('Retry')
             return False
-        shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
-        elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
-        wrist_angle = -1*(shoulder_angle + elbow_angle)
-        shoulder_angle *= 2.1
-        elbow_angle *= 2.1
-        print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
-        print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
-        print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
-        #self.armController(shoulder_angle, elbow_angle, wrist_angle)
-        return [shoulder_angle, elbow_angle, wrist_angle]
         
     def armController(self, shoulder_param, elbow_param, wrist_param):
         thread_shoulder = threading.Thread(target=self.shoulderPub, args=(shoulder_param,))
