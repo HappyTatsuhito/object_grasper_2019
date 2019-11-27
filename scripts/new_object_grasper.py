@@ -140,7 +140,6 @@ class ObjectGrasper(Experiment):
             return [shoulder_angle, elbow_angle, wrist_angle]
         except ValueError:
             print 'I can not move arm.'
-            self.retry_pub.publish('Retry')
             return False
         
     def armController(self, shoulder_param, elbow_param, wrist_param):
@@ -159,7 +158,7 @@ class ObjectGrasper(Experiment):
         #print self.front_laser_dist
     '''
     
-    def apploachObject(self,object_centroid):
+    def approachObject(self,object_centroid):
         if object_centroid.x < 0.6 or object_centroid.x > 0.7:
             move_range = (object_centroid.x-0.65)*2.0
             if abs(move_range) < 0.5:
@@ -176,7 +175,6 @@ class ObjectGrasper(Experiment):
             y = object_centroid.z + 0.06
         else:
             y = self.target_place[self.navigation_place] + 0.1
-        self.navigation_place = 'Null'
         x = (y-0.75)/10+0.5 #0.5
         joint_angle = self.inverseKinematics(x, y)
         if not joint_angle:
@@ -222,16 +220,16 @@ class ObjectGrasper(Experiment):
     def actionMain(self,object_centroid):
         target_centroid = object_centroid.grasp_goal
         #grasp_feedback = ObjectGrasperFeedback()
-        grasp_result = ObjectRecognizerResult()
+        grasp_result = ObjectGrasperResult()
         grasp_flg = False
         approach_flg = self.approachObject(target_centroid)
         if approach_flg:
-            grasp_flg = self.graspObject(object_centroid)
-        self.grasp_res_pub.publish(grasp_flg)
+            grasp_flg = self.graspObject(target_centroid)
         grasp_result.grasp_result = grasp_flg
-        self.act.set_succeeded(grasp_flg)
+        self.act.set_succeeded(grasp_result)
+        rospy.loginfo('approach_flg : %s'%approach_flg)
+        rospy.loginfo('grasp_flg   :  %s'%grasp_flg)
 
-        return
 
 if __name__ == '__main__':
     rospy.init_node('Object_Grasper')
