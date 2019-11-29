@@ -36,7 +36,7 @@ class ObjectGrasper(Experiment):
         # instance variables
         #self.front_laser_dist = 0.00
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.67, 'Drei':0.69}
+        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.67, 'Drei':0.60}
 
         self.act.start()
 
@@ -119,7 +119,7 @@ class ObjectGrasper(Experiment):
         self.cmd_vel_pub.publish(cmd)
 
     def inverseKinematics(self, x, y):
-        l0 = 0.75# Height from ground to shoulder(metre)
+        l0 = 0.81# Height from ground to shoulder(metre)
         l1 = 0.24# Length from shoulder to elbow(metre)
         l2 = 0.20# Length from elbow to wrist(metre)
         l3 = 0.15# Length of end effector(metre)
@@ -161,8 +161,8 @@ class ObjectGrasper(Experiment):
     def approachObject(self,object_centroid):
         if object_centroid.x < 0.6 or object_centroid.x > 0.7:
             move_range = (object_centroid.x-0.65)*2.0
-            if abs(move_range) < 0.5:
-                move_range = int(move_range/abs(move_range))*0.5
+            if abs(move_range) < 0.4:
+                move_range = int(move_range/abs(move_range))*0.4
             self.moveBase(move_range)
             return False
         else :
@@ -181,13 +181,13 @@ class ObjectGrasper(Experiment):
             return False
         self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         rospy.sleep(2.5)
-        move_range = (0.17+object_centroid.x+0.15-(x+0.2))*3.1
+        move_range = (0.17+object_centroid.x+0.15-(x+0.2))*3.5
         self.moveBase(move_range*0.7)
         rospy.sleep(0.3)
         self.moveBase(move_range*0.3)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(1.0)
-        self.shoulderPub(joint_angle[0]+0.5)
+        self.shoulderPub(joint_angle[0]+0.2)
         self.moveBase(-0.6)
         self.shoulderPub(0.7)
         arm_change_cmd = String()
@@ -199,6 +199,7 @@ class ObjectGrasper(Experiment):
         if grasp_flg :
             print 'Successfully grasped the object!'
         else:
+            self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             print 'Failed to grasp the object.'
         print 'Finish grasp'
         return grasp_flg
