@@ -36,7 +36,7 @@ class ObjectGrasper(Experiment):
         # instance variables
         #self.front_laser_dist = 0.00
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.67, 'Drei':0.60}
+        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.66, 'Drei':0.69}
 
         self.act.start()
 
@@ -65,7 +65,7 @@ class ObjectGrasper(Experiment):
             arm_change_cmd.data = 'carry'
             self.changePoseReqCB(arm_change_cmd)
         elif cmd.data == 'place':
-            self.moveBase(-0.4)
+            self.moveBase(-0.55)
             y = self.target_place[self.navigation_place] + 0.1
             x = (y-0.75)/10+0.5
             print 'x : ', x
@@ -170,26 +170,26 @@ class ObjectGrasper(Experiment):
 
     def graspObject(self, object_centroid):
         print '-- Grasp Object --'
-        self.moveBase(-0.6)
+        self.moveBase(-0.5)
         if self.navigation_place == 'Null':
             y = object_centroid.z + 0.06
         else:
-            y = self.target_place[self.navigation_place] + 0.1
+            y = self.target_place[self.navigation_place] + 0.13
         x = (y-0.75)/10+0.5 #0.5
         joint_angle = self.inverseKinematics(x, y)
         if not joint_angle:
             return False
         self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         rospy.sleep(2.5)
-        move_range = (0.17+object_centroid.x+0.15-(x+0.2))*3.5
+        move_range = (0.17+object_centroid.x+0.15-(x+0.2))*4.5
         self.moveBase(move_range*0.7)
         rospy.sleep(0.3)
-        self.moveBase(move_range*0.3)
+        self.moveBase(move_range*0.4)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(1.0)
         self.shoulderPub(joint_angle[0]+0.2)
         self.moveBase(-0.6)
-        self.shoulderPub(0.7)
+        #self.shoulderPub(0.7)
         arm_change_cmd = String()
         arm_change_cmd.data = 'carry'
         self.changePoseReqCB(arm_change_cmd)
