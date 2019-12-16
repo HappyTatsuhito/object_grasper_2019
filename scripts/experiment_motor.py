@@ -5,28 +5,30 @@ import rospy
 import time
 import math
 import threading
+# ros msgs
 from std_msgs.msg import Bool,Float64,String
 from dynamixel_msgs.msg import JointState
 
 class Experiment(object):
     def __init__(self):
-        self.origin_initializer_sub = rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotorCB)
-        self.shoulder_sub = rospy.Subscriber('/shoulder_req',Float64,self.shoulderPub)
-        self.elbow_sub = rospy.Subscriber('/elbow_req',Float64,self.elbowPub)
-        self.wrist_sub = rospy.Subscriber('/wrist_req',Float64,self.wristPub)
-        self.endeffector_sub = rospy.Subscriber('/endeffector_req',Bool,self.endeffectorPub)
-        self.m0_sub = rospy.Subscriber('/m0_controller/state',JointState,self.M0StateCB)
-        self.m1_sub = rospy.Subscriber('/m1_controller/state',JointState,self.M1StateCB)
-        self.m2_sub = rospy.Subscriber('/m2_controller/state',JointState,self.M2StateCB)
-        self.m3_sub = rospy.Subscriber('/m3_controller/state',JointState,self.M3StateCB)
-        self.m4_sub = rospy.Subscriber('/m4_controller/state',JointState,self.M4StateCB)
+        # topic subscriber
+        origin_initializer_sub = rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotorCB)
+        shoulder_sub = rospy.Subscriber('/shoulder_req',Float64,self.shoulderPub)
+        elbow_sub = rospy.Subscriber('/elbow_req',Float64,self.elbowPub)
+        wrist_sub = rospy.Subscriber('/wrist_req',Float64,self.wristPub)
+        endeffector_sub = rospy.Subscriber('/endeffector_req',Bool,self.endeffectorPub)
+        m0_sub = rospy.Subscriber('/m0_controller/state',JointState,self.M0StateCB)
+        m1_sub = rospy.Subscriber('/m1_controller/state',JointState,self.M1StateCB)
+        m2_sub = rospy.Subscriber('/m2_controller/state',JointState,self.M2StateCB)
+        m3_sub = rospy.Subscriber('/m3_controller/state',JointState,self.M3StateCB)
+        m4_sub = rospy.Subscriber('/m4_controller/state',JointState,self.M4StateCB)
+        # topic publisher
         self.m0_pub = rospy.Publisher('m0_controller/command',Float64,queue_size=1)
         self.m1_pub = rospy.Publisher('m1_controller/command',Float64,queue_size=1)
         self.m2_pub = rospy.Publisher('m2_controller/command',Float64,queue_size=1)
         self.m3_pub = rospy.Publisher('m3_controller/command',Float64,queue_size=1)
         self.m4_pub = rospy.Publisher('m4_controller/command',Float64,queue_size=1)
         self.m6_pub = rospy.Publisher('m6_controller/command',Float64,queue_size=1)
-
         # instance variables
         self.M0_ORIGIN_ANGLE = -0.562459622225
         self.M1_ORIGIN_ANGLE = 0.628932123033
@@ -34,7 +36,6 @@ class Experiment(object):
         self.M3_ORIGIN_ANGLE = 0.0
         self.M4_ORIGIN_ANGLE = 0.5
         self.M6_ORIGIN_ANGLE = 0.3
-
         self.m0_current_pos = 0.00
         self.m0_error = 0.00
         self.m0_is_moving = False
@@ -60,7 +61,7 @@ class Experiment(object):
         self.m2_pub.publish(self.M2_ORIGIN_ANGLE)
         self.m3_pub.publish(self.M3_ORIGIN_ANGLE)
         self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
-        print 'initialized all motors!'
+        rospy.loginfo('initialized all motors!')
 
     def shoulderPub(self,m01):
         if type(m01) == type(Float64()):
@@ -122,6 +123,42 @@ class Experiment(object):
         rospy.sleep(0.1)
         self.m4_pub.publish(self.m4_current_pos -  0.05)
         return grasp_flg
+
+    def inverseKinematics(self, x, y):
+        l0 = 0.81# Height from ground to shoulder(metre)
+        l1 = 0.24# Length from shoulder to elbow(metre)
+        l2 = 0.20# Length from elbow to wrist(metre)
+        l3 = 0.15# Length of end effector(metre)
+        x -= l3
+        y -= l0
+        data1 =  x*x+y*y+l1*l1-l2*l2
+        data2 =  2*l1*math.sqrt(x*x+y*y)
+        try:
+            shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
+            elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
+            wrist_angle = -1*(shoulder_angle + elbow_angle)
+            shoulder_angle *= 2.1
+            elbow_angle *= 2.1
+            '''
+            print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
+            print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
+            print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
+            '''
+            #self.armController(shoulder_angle, elbow_angle, wrist_angle)
+            return [shoulder_angle, elbow_angle, wrist_angle]
+        except ValueError:
+            rospy.loginfo('I can not move arm.')
+            return False
+        
+    def armController(self, shoulder_param, elbow_param, wrist_param):
+        thread_shoulder = threading.Thread(target=self.shoulderPub, args=(shoulder_param,))
+        thread_elbow = threading.Thread(target=self.elbowPub, args=(elbow_param,))
+        thread_wrist = threading.Thread(target=self.wristPub, args=(wrist_param,))
+        thread_elbow.start()
+        rospy.sleep(0.2)
+        thread_wrist.start()
+        rospy.sleep(0.2)
+        thread_shoulder.start()
         
     def M0StateCB(self,state):
         self.m0_current_pos = state.current_pos

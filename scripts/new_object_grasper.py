@@ -6,48 +6,58 @@ import time
 import math
 import threading
 import actionlib
-# ros msgs
+# -- ros msgs --
 from std_msgs.msg import Bool,Float64,String
 from dynamixel_msgs.msg import JointState
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 #from sensor_msgs.msg import LaserScan
-# action msgs
+# --  ros srvs --
+from manipulation.srv import ManipulateSrv
+# -- action msgs --
 from manipulation.msg import *
-# class inheritance
+# -- class inheritance --
 from experiment_motor import Experiment
 
 class ObjectGrasper(Experiment):
     def __init__(self):
         super(ObjectGrasper,self).__init__()
-        # topic subscriber
-        changing_pose_req_sub = rospy.Subscriber('/arm/changing_pose_req',String,self.changePoseReqCB)
+        # -- topic subscriber --
         navigation_place_sub = rospy.Subscriber('/navigation/move_place',String,self.navigationPlaceCB)
         #self.laser_sub = rospy.Subscriber('/scan',LaserScan,self.laserCB)
-        # topic publisher
+
+        # -- topic publisher --
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size = 1)
-        self.changing_pose_res_pub = rospy.Publisher('/arm/changing_pose_res',Bool,queue_size = 1)
-        # action server
+
+        # -- service server --
+        arm_changer = rospy.Service('/change_arm_pose',ManipulateSrv,self.changeArmPose)
+
+        # -- action server --
         self.act = actionlib.SimpleActionServer('/object/grasp',
                                                 ObjectGrasperAction,
                                                 execute_cb = self.actionMain,
                                                 auto_start = False)
         self.act.register_preempt_callback(self.actionPreempt)
-        # instance variables
-        #self.front_laser_dist = 0.00
+        
+        # -- instance variables --
         self.navigation_place = 'Null'
         self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.66, 'Drei':0.69}
+        #self.front_laser_dist = 0.00
 
         self.act.start()
 
-    def changePoseReqCB(self,cmd):
-        print 'Change arm command :', cmd.data
-        if cmd.data == 'carry':
+    def changeArmPose(self,cmd):
+        if type(cmd) != str:
+            cmd = cmd.target
+        rospy.loginfo('Change arm command : %s'%cmd)
+        if cmd == 'carry':
             shoulder_param = -3.0
             elbow_param = 2.6
             wrist_param = 1.4
             self.armController(shoulder_param, elbow_param, wrist_param)
-        elif cmd.data == 'give':
+            return True
+        
+        elif cmd == 'give':
             shoulder_param = -1.2
             elbow_param = 2.6
             wrist_param = -0.7
@@ -60,16 +70,14 @@ class ObjectGrasper(Experiment):
             while wrist_error - abs(self.m3_error) < 0.009 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
                 pass
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
-            self.changing_pose_res_pub.publish(True)
-            arm_change_cmd = String()
-            arm_change_cmd.data = 'carry'
-            self.changePoseReqCB(arm_change_cmd)
-        elif cmd.data == 'place':
+            self.changeArmPose('carry')
+            rospy.loginfo('Finish give command\n')
+            return True
+        
+        elif cmd == 'place':
             self.moveBase(-0.55)
             y = self.target_place[self.navigation_place] + 0.1
             x = (y-0.75)/10+0.5
-            print 'x : ', x
-            print 'y : ', y
             joint_angle = self.inverseKinematics(x, y)
             if not joint_angle:
                 return
@@ -93,14 +101,14 @@ class ObjectGrasper(Experiment):
             self.moveBase(-0.3)
             self.shoulderPub(shoulder_param+0.2)
             self.moveBase(-0.8)
-            arm_change_cmd = String()
-            arm_change_cmd.data = 'carry'
-            self.changePoseReqCB(arm_change_cmd)
+            self.changeArmPose('carry')
             self.navigation_place = 'Null'
-            self.changing_pose_res_pub.publish(True)
-            print 'Finish placing\n'
+            rospy.loginfo('Finish place command\n')
+            return True
+        
         else :
-            print 'No such command.'
+            rospy.loginfo('No such command.')
+            return False
                         
     def moveBase(self,rad_speed):
         cmd = Twist()
@@ -118,44 +126,10 @@ class ObjectGrasper(Experiment):
         cmd.angular.z = 0
         self.cmd_vel_pub.publish(cmd)
 
-    def inverseKinematics(self, x, y):
-        l0 = 0.81# Height from ground to shoulder(metre)
-        l1 = 0.24# Length from shoulder to elbow(metre)
-        l2 = 0.20# Length from elbow to wrist(metre)
-        l3 = 0.15# Length of end effector(metre)
-        x -= l3
-        y -= l0
-        data1 =  x*x+y*y+l1*l1-l2*l2
-        data2 =  2*l1*math.sqrt(x*x+y*y)
-        try:
-            shoulder_angle = -1*math.acos((x*x+y*y+l1*l1-l2*l2) / (2*l1*math.sqrt(x*x+y*y))) + math.atan(y/x)# -1倍の有無で別解
-            elbow_angle = math.atan((y-l1*math.sin(shoulder_angle))/(x-l1*math.cos(shoulder_angle)))-shoulder_angle
-            wrist_angle = -1*(shoulder_angle + elbow_angle)
-            shoulder_angle *= 2.1
-            elbow_angle *= 2.1
-            print 'shoulder_angle : ', shoulder_angle, ' deg : ', math.degrees(shoulder_angle)
-            print 'elbow_angle    : ', elbow_angle, ' deg : ', math.degrees(elbow_angle)
-            print 'wrist_angle    : ', wrist_angle, ' deg : ', math.degrees(wrist_angle)
-            #self.armController(shoulder_angle, elbow_angle, wrist_angle)
-            return [shoulder_angle, elbow_angle, wrist_angle]
-        except ValueError:
-            print 'I can not move arm.'
-            return False
-        
-    def armController(self, shoulder_param, elbow_param, wrist_param):
-        thread_shoulder = threading.Thread(target=self.shoulderPub, args=(shoulder_param,))
-        thread_elbow = threading.Thread(target=self.elbowPub, args=(elbow_param,))
-        thread_wrist = threading.Thread(target=self.wristPub, args=(wrist_param,))
-        thread_elbow.start()
-        rospy.sleep(0.2)
-        thread_wrist.start()
-        rospy.sleep(0.2)
-        thread_shoulder.start()
-
     '''
     def laserCB(self,laser_scan):
         self.front_laser_dist = laser_scan.ranges[360]
-        #print self.front_laser_dist
+        #rospy.loginfo(self.front_laser_dist)
     '''
     
     def approachObject(self,object_centroid):
@@ -169,7 +143,7 @@ class ObjectGrasper(Experiment):
             return True
 
     def graspObject(self, object_centroid):
-        print '-- Grasp Object --'
+        rospy.loginfo('-- Grasp Object --')
         self.moveBase(-0.5)
         if self.navigation_place == 'Null':
             y = object_centroid.z + 0.06
@@ -190,18 +164,16 @@ class ObjectGrasper(Experiment):
         self.shoulderPub(joint_angle[0]+0.2)
         self.moveBase(-0.6)
         #self.shoulderPub(0.7)
-        arm_change_cmd = String()
-        arm_change_cmd.data = 'carry'
-        self.changePoseReqCB(arm_change_cmd)
+        self.changeArmPose('carry')
         rospy.sleep(4.0)
         if grasp_flg :
             grasp_flg = self.m4_error > 0.03
         if grasp_flg :
-            print 'Successfully grasped the object!'
+            rospy.loginfo('Successfully grasped the object!')
         else:
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
-            print 'Failed to grasp the object.'
-        print 'Finish grasp'
+            rospy.loginfo('Failed to grasp the object.')
+        rospy.loginfo('Finish grasp')
         return grasp_flg
     
     def navigationPlaceCB(self,res):
@@ -233,6 +205,6 @@ class ObjectGrasper(Experiment):
 
 
 if __name__ == '__main__':
-    rospy.init_node('Object_Grasper')
+    rospy.init_node('object_grasper')
     grasper = ObjectGrasper()
     rospy.spin()
