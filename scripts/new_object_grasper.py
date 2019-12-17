@@ -24,21 +24,16 @@ class ObjectGrasper(Experiment):
         super(ObjectGrasper,self).__init__()
         # -- topic subscriber --
         navigation_place_sub = rospy.Subscriber('/navigation/move_place',String,self.navigationPlaceCB)
-        #self.laser_sub = rospy.Subscriber('/scan',LaserScan,self.laserCB)
-
         # -- topic publisher --
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size = 1)
-
         # -- service server --
         arm_changer = rospy.Service('/change_arm_pose',ManipulateSrv,self.changeArmPose)
-
         # -- action server --
         self.act = actionlib.SimpleActionServer('/object/grasp',
                                                 ObjectGrasperAction,
                                                 execute_cb = self.actionMain,
                                                 auto_start = False)
         self.act.register_preempt_callback(self.actionPreempt)
-        
         # -- instance variables --
         self.navigation_place = 'Null'
         self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.66, 'Drei':0.69}
@@ -49,7 +44,7 @@ class ObjectGrasper(Experiment):
     def changeArmPose(self,cmd):
         if type(cmd) != str:
             cmd = cmd.target
-        rospy.loginfo('Change arm command : %s'%cmd)
+        rospy.loginfo('  Change arm command : %s'%cmd)
         if cmd == 'carry':
             shoulder_param = -3.0
             elbow_param = 2.6
@@ -71,7 +66,7 @@ class ObjectGrasper(Experiment):
                 pass
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             self.changeArmPose('carry')
-            rospy.loginfo('Finish give command\n')
+            rospy.loginfo('  Finish give command\n')
             return True
         
         elif cmd == 'place':
@@ -103,11 +98,11 @@ class ObjectGrasper(Experiment):
             self.moveBase(-0.8)
             self.changeArmPose('carry')
             self.navigation_place = 'Null'
-            rospy.loginfo('Finish place command\n')
+            rospy.loginfo('  Finish place command\n')
             return True
         
         else :
-            rospy.loginfo('No such command.')
+            rospy.loginfo('  No such change arm command.')
             return False
                         
     def moveBase(self,rad_speed):
@@ -126,12 +121,6 @@ class ObjectGrasper(Experiment):
         cmd.angular.z = 0
         self.cmd_vel_pub.publish(cmd)
 
-    '''
-    def laserCB(self,laser_scan):
-        self.front_laser_dist = laser_scan.ranges[360]
-        #rospy.loginfo(self.front_laser_dist)
-    '''
-    
     def approachObject(self,object_centroid):
         if object_centroid.x < 0.6 or object_centroid.x > 0.7:
             move_range = (object_centroid.x-0.65)*2.0
@@ -143,7 +132,7 @@ class ObjectGrasper(Experiment):
             return True
 
     def graspObject(self, object_centroid):
-        rospy.loginfo('-- Grasp Object --')
+        rospy.loginfo('\n----- Grasp Object -----')
         self.moveBase(-0.5)
         if self.navigation_place == 'Null':
             y = object_centroid.z + 0.06
@@ -163,7 +152,7 @@ class ObjectGrasper(Experiment):
         rospy.sleep(1.0)
         self.shoulderPub(joint_angle[0]+0.2)
         self.moveBase(-0.6)
-        #self.shoulderPub(0.7)
+        #self.shoulderPub(0.7) # 重い物体を把持した場合に必要
         self.changeArmPose('carry')
         rospy.sleep(4.0)
         if grasp_flg :
@@ -173,7 +162,7 @@ class ObjectGrasper(Experiment):
         else:
             self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
             rospy.loginfo('Failed to grasp the object.')
-        rospy.loginfo('Finish grasp')
+        rospy.loginfo('Finish grasp.')
         return grasp_flg
     
     def navigationPlaceCB(self,res):
@@ -186,7 +175,7 @@ class ObjectGrasper(Experiment):
                 self.navigation_place = 'Null'
 
     def actionPreempt(self):
-        rospy.loginfo('preempt callback')
+        rospy.loginfo('Preempt callback')
         self.act.set_preempted(text = 'message for preempt')
         self.preempt_flg = True
 
@@ -200,8 +189,8 @@ class ObjectGrasper(Experiment):
             grasp_flg = self.graspObject(target_centroid)
         grasp_result.grasp_result = grasp_flg
         self.act.set_succeeded(grasp_result)
-        rospy.loginfo('approach_flg : %s'%approach_flg)
-        rospy.loginfo('grasp_flg   :  %s'%grasp_flg)
+        #rospy.loginfo('approach_flg : %s'%approach_flg)
+        #rospy.loginfo('grasp_flg   :  %s'%grasp_flg)
 
 
 if __name__ == '__main__':
