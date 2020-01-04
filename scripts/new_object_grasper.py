@@ -189,8 +189,6 @@ class ObjectGrasper(Experiment):
             grasp_flg = self.graspObject(target_centroid)
         grasp_result.grasp_result = grasp_flg
         self.act.set_succeeded(grasp_result)
-        #rospy.loginfo('approach_flg : %s'%approach_flg)
-        #rospy.loginfo('grasp_flg   :  %s'%grasp_flg)
 
 
 if __name__ == '__main__':
