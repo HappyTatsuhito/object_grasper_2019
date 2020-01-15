@@ -2,7 +2,7 @@
 RoboCup2019に向けて開発したマニピュレータを制御するパッケージ  
 物体把持、物体設置、モータ調整を行えます。  
 
-# How to use  
+# Usage  
 モータを制御できるようにセットアップを行います。  
 
     $ roslaunch object_grasper motor_setup.launch  
@@ -23,7 +23,7 @@ RoboCup2019に向けて開発したマニピュレータを制御するパッケ
     $ rosrun object_grasper general_grasper.py  
 で物体把持を行えます。  
 
-# 入出力  
+# Input and Output  
 ### object_grasper.py：  
 
   |動作 |入力topic名 |入力内容 |出力topic名 |出力内容 |  
@@ -44,7 +44,7 @@ RoboCup2019に向けて開発したマニピュレータを制御するパッケ
   |手先を閉じる(ID:4)|/endeffector_req|Bool(True)|  
   
 
-# その他  
+# Other  
 モータIDは左肩、右肩、肘、手首、手先の順に0〜4と割り振られています。また、頭部分は6になっています。  
 物体把持は把持が完了するまで何度もリトライします。  
 
