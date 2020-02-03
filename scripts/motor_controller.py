@@ -8,21 +8,8 @@ import threading
 from std_msgs.msg import Bool,Float64,String
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msg.msg import JointState
+# ros srvs
 from dynamixel_workbench_msgs.srv import DynamixelCommand
-
-class Experiment(object):
-    def __init__(self):
-        # topic subscriber
-        # topic publisher
-        self.m0_pub = rospy.Publisher('m0_controller/command',Float64,queue_size=1)
-        self.m1_pub = rospy.Publisher('m1_controller/command',Float64,queue_size=1)
-        self.m2_pub = rospy.Publisher('m2_controller/command',Float64,queue_size=1)
-        self.m3_pub = rospy.Publisher('m3_controller/command',Float64,queue_size=1)
-        self.m4_pub = rospy.Publisher('m4_controller/command',Float64,queue_size=1)
-        self.m6_pub = rospy.Publisher('m6_controller/command',Float64,queue_size=1)
-
-
-
 
 class MotorController(object):
     def __init__(self):
@@ -38,9 +25,9 @@ class MotorController(object):
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
         
-        self.M0_ORIGIN_ANGLE = -0.562459622225
-        self.M1_ORIGIN_ANGLE = 0.628932123033
-        self.M2_ORIGIN_ANGLE = 0.317022696163
+        self.M0_ORIGIN_ANGLE = -0.177941769361
+        self.M1_ORIGIN_ANGLE = 0.133456334472
+        self.M2_ORIGIN_ANGLE = -0.101242735982
         self.M3_ORIGIN_ANGLE = 0.0
         self.M4_ORIGIN_ANGLE = 0.5
         self.M6_ORIGIN_ANGLE = 0.3
@@ -51,14 +38,13 @@ class MotorController(object):
             self.torque_error[i] = state.effort[i]
             self.rotation_velocity[i] = state.velocity[i]
 
-    def callMotorService(self, motor_id, value):
-        msg = DynamixelCommand()
-        msg.id = 
-        res = self.motor_client()
+    def callMotorService(self, motor_id, rotate_value):
+        res = self.motor_client('', motor_id, 'Goal_Position', rotate_value)
     
 
-class ArmController():
+class JointController(MotorController):
     def __init__(self):
+        super(JointController,self).__init__()
         rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotor)
         rospy.Subscriber('/head_req',Float64,self.headPub)
         rospy.Subscriber('/shoulder_req',Float64,self.shoulderPub)
@@ -167,9 +153,30 @@ class ArmController():
         return grasp_flg
 
     
-class ConnectFrame():
+class ArmPoseChanger(JointController):
     def __init__(self):
-        pass
+        super(ArmPoseChanger,self).__init__()
+
+    def carryMode(self):
+        shoulder_param = -3.0
+        elbow_param = 2.6
+        wrist_param =1.4
+        self.armController(shoulder_param, elbow_param, wrist_param)
+        return True
+
+    def giveMode(self):
+        shoulder_param = -1.2
+        elbow_param = 2.6
+        wrist_param = -0.7
+        self.armController(shoulder_param, elbow_param, wrist_param)
+        return True
+
+    def placeMode(self, height):
+        shoulder_param = 0.0
+        elbow_param = 0.0
+        wrist_param = 0.0
+        self.armController(shoulder_param, elbow_param, wrist_param)
+        return True
 
     
 if __name__ == '__main__':
