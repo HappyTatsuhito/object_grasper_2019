@@ -1,9 +1,9 @@
-#m0_controller:
-#  ID: 0
-#m1_controller:
-#  ID: 1
-#m2_controller:
-#  ID: 2
+m0_controller:
+  ID: 0
+m1_controller:
+  ID: 1
+m2_controller:
+  ID: 2
 m3_controller:
   ID: 3
 m4_controller:
