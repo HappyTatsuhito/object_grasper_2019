@@ -38,15 +38,7 @@ class MotorController(object):
             self.rotation_velocity[i] = state.velocity[i]
 
     def callMotorService(self, motor_id, rotate_value):
-        if type(rotate_value) == type(float()):
-            rotate_value = self.radToStep(rotate_value)
         res = self.motor_client('', motor_id, 'Goal_Position', rotate_value)
-
-    def radToStep(self,rad):
-        return step = int((rad + math.pi) * 2048 / math.pi)
-
-    def stepToRad(self,step):
-        return rad = step * math.pi / 2048 - math.pi
     
 
 class JointController(MotorController):
@@ -62,23 +54,17 @@ class JointController(MotorController):
     def shoulderPub(self,angle):
         if type(angle) == type(Float64()):
             angle = angle.data
-        angle0_p = self.m0_origin_angle - angle
-        angle1_p = self.m1_origin_angle + angle
-        step0 = self.radToStep(angle0_p)
-        step1 = self.radToStep(angle1_p)
-        thread_m0 = threading.Thread(target=self.callMotorService, args=(angle0_p,))
-        thread_m1 = threading.Thread(target=self.callMotorService, args=(angle1_p,))
-        thread_m0.start()
-        thread_m1.start()
+        angle_p = self.m0_origin_angle - angle
+        angle_p = self.m1_origin_angle + angle
+        self.m0_pub.publish(angle_p)
+        self.m1_pub.publish(angle_p)
         rospy.sleep(0.1)
-        while self.rotation_velocity[0] > 0 or self.rotation_velocity[1] > 0:
+        while self.m0_is_moving or self.m1_is_moving:
             pass
         rospy.sleep(0.1)
-        ###
         if self.m1_error > 0.06 or self.m0_error > 0.06:
             self.m1_pub.publish(self.m1_current_pos+0.04)
             self.m0_pub.publish(self.m0_current_pos-0.04)
-        ###
 
     def elbowPub(self,angle):
         if type(angle) == type(Float64()):
@@ -129,7 +115,10 @@ class JointController(MotorController):
     def headPub(self,angle):
         step = self.radToStep(angle)
         self.callMotorService(5, step)
-    
+
+    def radToStep(self,rad):
+        return step = int((rad + math.pi) * 2048 / math.pi)
+        
     
 class ArmPoseChanger(JointController):
     def __init__(self):
