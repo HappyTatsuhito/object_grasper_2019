@@ -31,8 +31,8 @@ class Experiment(object):
         self.m6_pub = rospy.Publisher('m6_controller/command',Float64,queue_size=1)
         # instance variables
         self.M0_ORIGIN_ANGLE = -0.562459622225
-        self.M1_ORIGIN_ANGLE = 0.628932123033
-        self.M2_ORIGIN_ANGLE = 0.317022696163
+        self.M1_ORIGIN_ANGLE = 0.58802568689
+        self.M2_ORIGIN_ANGLE = 0.11
         self.M3_ORIGIN_ANGLE = 0.0
         self.M4_ORIGIN_ANGLE = 0.5
         self.M6_ORIGIN_ANGLE = 0.3

@@ -18,19 +18,18 @@ class MotorController(object):
         # ROS Topic Publisher
         self.motor_pub = rospy.Publisher('/dynamixel_workbench/joint_trajectory',JointTrajectory,queue_size=10)
         # ROS Service Client
-        self.motor_client = rospy.Service('/dynamixel_workbench/dynamixel_command',DynamixelCommand)## Args:command id addr_name value
+        self.motor_client = rospy.Service('/dynamixel_workbench/dynamixel_command',DynamixelCommand)
         # Motor Parameters
         self.origin_angle = []
         self.current_pos = [0]*5
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
-        
-        self.M0_ORIGIN_ANGLE = -0.177941769361
-        self.M1_ORIGIN_ANGLE = 0.133456334472
-        self.M2_ORIGIN_ANGLE = -0.101242735982
-        self.M3_ORIGIN_ANGLE = 0.0
-        self.M4_ORIGIN_ANGLE = 0.5
-        self.M6_ORIGIN_ANGLE = 0.3
+        self.m0_origin_angle = -0.177941769361
+        self.m1_origin_angle = 0.133456334472
+        self.m2_origin_angle = -0.101242735982
+        self.m3_origin_angle = 0.0
+        self.m4_origin_angle = 0.5
+        self.m5_origin_angle = 0.3
         
     def getMotorStateCB(self, state):
         for i in range(5):
@@ -45,12 +44,95 @@ class MotorController(object):
 class JointController(MotorController):
     def __init__(self):
         super(JointController,self).__init__()
-        rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotor)
-        rospy.Subscriber('/head_req',Float64,self.headPub)
+        # ROS Topic Subscriber
         rospy.Subscriber('/shoulder_req',Float64,self.shoulderPub)
         rospy.Subscriber('/elbow_req',Float64,self.elbowPub)
         rospy.Subscriber('/wrist_req',Float64,self.wristPub)
         rospy.Subscriber('/endeffector_req',Bool,self.endeffectorPub)
+        rospy.Subscriber('/head_req',Float64,self.headPub)
+
+    def shoulderPub(self,angle):
+        if type(angle) == type(Float64()):
+            angle = angle.data
+        angle_p = self.m0_origin_angle - angle
+        angle_p = self.m1_origin_angle + angle
+        self.m0_pub.publish(angle_p)
+        self.m1_pub.publish(angle_p)
+        rospy.sleep(0.1)
+        while self.m0_is_moving or self.m1_is_moving:
+            pass
+        rospy.sleep(0.1)
+        if self.m1_error > 0.06 or self.m0_error > 0.06:
+            self.m1_pub.publish(self.m1_current_pos+0.04)
+            self.m0_pub.publish(self.m0_current_pos-0.04)
+
+    def elbowPub(self,angle):
+        if type(angle) == type(Float64()):
+            angle = angle.data
+        angle *= -1
+        angle_p = self.m2_origin_angle + angle
+        self.angle_pub.publish(angle_p)
+        rospy.sleep(0.1)
+        while self.m2_is_moving:
+            pass
+        rospy.sleep(0.1)
+        if abs(self.m2_error) > 0.06:
+            self.m2_pub.publish(self.m2_current_pos+0.04)
+
+    def wristPub(self,angle):
+        if type(angle) == type(Float64()):
+            angle = angle.data
+        angle_p = self.m3_origin_angle + angle
+        self.m3_pub.publish(angle_p)
+        rospy.sleep(0.1)
+        while self.m3_is_moving:
+            pass
+        rospy.sleep(0.1)
+        if abs(self.m3_error) > 0.06:
+            self.m3_pub.publish(self.m3_current_pos-0.04)
+
+    def endeffectorPub(self,req):
+        angle = self.m4_origin_angle
+        self.m4_pub.publish(angle)
+        rospy.sleep(0.1)
+        while self.m4_is_moving and not rospy.is_shutdown():
+            pass
+        rospy.sleep(0.1)
+        grasp_flg = True
+        while self.m4_error <= 0.09 and not rospy.is_shutdown():
+            angle -= 0.05
+            self.m4_pub.publish(angle)
+            rospy.sleep(0.09)
+            while self.m4_velocity >= 2.0:
+                pass
+            if angle < -0.6:
+                grasp_flg = False
+                break;
+        rospy.sleep(0.1)
+        self.m4_pub.publish(self.m4_current_pos -  0.05)
+        return grasp_flg
+
+    def headPub(self,angle):
+        step = self.radToStep(angle)
+        self.callMotorService(5, step)
+
+    def radToStep(self,rad):
+        return step = int((rad + math.pi) * 2048 / math.pi)
+        
+    
+class ArmPoseChanger(JointController):
+    def __init__(self):
+        super(ArmPoseChanger,self).__init__()
+        # ROS Topic Subscriber
+        rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotor)
+
+    def initializeMotor(self,res):
+        self.m0_pub.publish(self.m0_origin_angle)
+        self.m1_pub.publish(self.m1_origin_angle)
+        self.m2_pub.publish(self.m2_origin_angle)
+        self.m3_pub.publish(self.m3_origin_angle)
+        self.m4_pub.publish(self.m4_origin_angle)
+        rospy.loginfo('initialized all motors!')
 
     def inverseKinematics(self, x, y):
         l0 = 0.81# Height from ground to shoulder(metre)
@@ -83,80 +165,6 @@ class JointController(MotorController):
         rospy.sleep(0.2)
         thread_shoulder.start()
         
-    def initializeMotor(self,res):
-        self.m0_pub.publish(self.M0_ORIGIN_ANGLE)
-        self.m1_pub.publish(self.M1_ORIGIN_ANGLE)
-        self.m2_pub.publish(self.M2_ORIGIN_ANGLE)
-        self.m3_pub.publish(self.M3_ORIGIN_ANGLE)
-        self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
-        rospy.loginfo('initialized all motors!')
-
-    def shoulderPub(self,m01):
-        if type(m01) == type(Float64()):
-            m01 = m01.data
-        m0_p = self.M0_ORIGIN_ANGLE - m01
-        m1_p = self.M1_ORIGIN_ANGLE + m01
-        self.m0_pub.publish(m0_p)
-        self.m1_pub.publish(m1_p)
-        rospy.sleep(0.1)
-        while self.m0_is_moving or self.m1_is_moving:
-            pass
-        rospy.sleep(0.1)
-        if self.m1_error > 0.06 or self.m0_error > 0.06:
-            self.m1_pub.publish(self.m1_current_pos+0.04)
-            self.m0_pub.publish(self.m0_current_pos-0.04)
-
-    def elbowPub(self,m2):
-        if type(m2) == type(Float64()):
-            m2 = m2.data
-        m2 *= -1
-        m2_p = self.M2_ORIGIN_ANGLE + m2
-        self.m2_pub.publish(m2_p)
-        rospy.sleep(0.1)
-        while self.m2_is_moving:
-            pass
-        rospy.sleep(0.1)
-        if abs(self.m2_error) > 0.06:
-            self.m2_pub.publish(self.m2_current_pos+0.04)
-
-    def wristPub(self,m3):
-        if type(m3) == type(Float64()):
-            m3 = m3.data
-        m3_p = self.M3_ORIGIN_ANGLE + m3
-        self.m3_pub.publish(m3_p)
-        rospy.sleep(0.1)
-        while self.m3_is_moving:
-            pass
-        rospy.sleep(0.1)
-        if abs(self.m3_error) > 0.06:
-            self.m3_pub.publish(self.m3_current_pos-0.04)
-
-    def endeffectorPub(self,req):
-        angle = self.M4_ORIGIN_ANGLE
-        self.m4_pub.publish(angle)
-        rospy.sleep(0.1)
-        while self.m4_is_moving and not rospy.is_shutdown():
-            pass
-        rospy.sleep(0.1)
-        grasp_flg = True
-        while self.m4_error <= 0.09 and not rospy.is_shutdown():
-            angle -= 0.05
-            self.m4_pub.publish(angle)
-            rospy.sleep(0.09)
-            while self.m4_velocity >= 2.0:
-                pass
-            if angle < -0.6:
-                grasp_flg = False
-                break;
-        rospy.sleep(0.1)
-        self.m4_pub.publish(self.m4_current_pos -  0.05)
-        return grasp_flg
-
-    
-class ArmPoseChanger(JointController):
-    def __init__(self):
-        super(ArmPoseChanger,self).__init__()
-
     def carryMode(self):
         shoulder_param = -3.0
         elbow_param = 2.6
