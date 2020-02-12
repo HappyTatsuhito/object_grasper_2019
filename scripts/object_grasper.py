@@ -160,4 +160,5 @@ class ObjectGrasper(ArmPoseChanger):
 if __name__ == '__main__':
     rospy.init_node('object_grasper')
     grasper = ObjectGrasper()
+    grasper.callMotorService(4, 0.0)
     rospy.spin()
