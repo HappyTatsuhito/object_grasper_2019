@@ -17,9 +17,9 @@ from manipulation.srv import ManipulateSrv
 # -- action msgs --
 from manipulation.msg import *
 # -- class inheritance --
-from experiment_motor import Experiment
+from motor_controller import ArmPoseChanger
 
-class ObjectGrasper(Experiment):
+class ObjectGrasper(ArmPoseChanger):
     def __init__(self):
         super(ObjectGrasper,self).__init__()
         # -- topic subscriber --
