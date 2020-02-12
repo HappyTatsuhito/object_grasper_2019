@@ -4,6 +4,7 @@
 import rospy
 import math
 import threading
+import time
 # ros msgs
 from std_msgs.msg import Bool,Float64
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -21,7 +22,7 @@ class MotorController(object):
         # ROS Service Client
         self.motor_client = rospy.ServiceProxy('/dynamixel_workbench/dynamixel_command',DynamixelCommand)
         # Motor Parameters
-        self.origin_angle = [0, 0, 0, 0, 0, 0]
+        self.origin_angle = [2048, 2048, 2048, 2048, 2048, 2048]
         self.current_pose = [0]*5
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
@@ -38,10 +39,10 @@ class MotorController(object):
         res = self.motor_client('', motor_id, 'Goal_Position', rotate_value)
 
     def radToStep(self,rad):
-        return int((rad + math.pi) * 2048 / math.pi)
+        return int((rad + math.pi) / (2*math.pi) * 4095)
 
     def stepToRad(self,step):
-        return step * math.pi / 2048 - math.pi
+        return step / 4095.0 * 2*math.pi - math.pi
     
 
 class JointController(MotorController):
@@ -58,11 +59,11 @@ class JointController(MotorController):
         if type(rad) == type(Float64()):
             rad = rad.data
         step = self.radToStep(rad)
-        angle0 = self.origin_angle[0] + 4095 - step
-        angle1 = self.origin_angle[1] + step
-        print '0:', angle0, ' 1:', angle1
-        thread_m0 = threading.Thread(target=self.callMotorService, args=(0, angle0,))
-        thread_m1 = threading.Thread(target=self.callMotorService, args=(1, angle1,))
+        step0 = 4095 - step
+        step1 = step
+        print '0:', step0, ' 1:', step1
+        thread_m0 = threading.Thread(target=self.callMotorService, args=(0, step0,))
+        thread_m1 = threading.Thread(target=self.callMotorService, args=(1, step1,))
         thread_m0.start()
         thread_m1.start()
         rospy.sleep(0.1)
@@ -80,9 +81,8 @@ class JointController(MotorController):
             rad = rad.data
         rad *= -1
         step = self.radToStep(rad)
-        angle = self.origin_angle[2] + step
-        print '2: ', angle
-        self.callMotorService(2, angle)
+        print '2: ', step
+        self.callMotorService(2, step)
         while self.rotation_velocity[2] > 0 and not rospy.is_shutdown():
             pass
         rospy.sleep(0.1)
@@ -93,9 +93,8 @@ class JointController(MotorController):
         if type(rad) == type(Float64()):
             rad = rad.data
         step = self.radToStep(rad)
-        angle = self.origin_angle[3] + step
-        print '3: ', angle
-        self.callMotorService(3, angle)
+        print '3: ', step
+        self.callMotorService(3, step)
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
         rospy.sleep(0.1)
@@ -107,18 +106,20 @@ class JointController(MotorController):
         self.callMotorService(4, angle)
         while self.rotation_velocity[4] > 0 and not rospy.is_shutdown():
             pass
-        rospy.sleep(0.1)
+        rospy.sleep(0.5)
         grasp_flg = True
-        while self.torque_error[4] <= 50 and not rospy.is_shutdown():
-            angle -= 30
+        while abs(self.torque_error[4]) <= 100 and not rospy.is_shutdown():
+            angle += 30
             self.callMotorService(4, angle)
-            while self.rotation_velocity[4] >= 2.0 and not rospy.is_shutdown():
+            rospy.sleep(0.06)
+            while self.rotation_velocity[4] > 2.0 and not rospy.is_shutdown():
                 pass
-            if angle < 3000:
+            if angle > 2900:
                 grasp_flg = False
                 break;
         rospy.sleep(0.1)
-        self.callMotorService(4, self.current_pose[4]-35)
+        self.callMotorService(4, self.current_pose[4]-40)
+        print 'fin'
         return grasp_flg
 
     def headPub(self,rad):
@@ -131,7 +132,7 @@ class ArmPoseChanger(JointController):
         super(ArmPoseChanger,self).__init__()
         # ROS Topic Subscriber
         rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotor)
-        arm_changer = rospyService('/change_arm_pose', ManipulateSrv, self.changeArmPose)
+        arm_changer = rospy.Service('/change_arm_pose', ManipulateSrv, self.changeArmPose)
 
     def initializeMotor(self,res):
         msg = JointTrajectory()
@@ -175,7 +176,7 @@ class ArmPoseChanger(JointController):
         thread_shoulder.start()
 
     def changeArmPose(self, cmd):
-        if type(cmd) != srt:
+        if type(cmd) != str:
             cmd = cmd.target
         rospy.loginfo('Chagnge arm command : %s'%cmd)
         if cmd == 'carry':
@@ -223,5 +224,5 @@ class ArmPoseChanger(JointController):
         
 if __name__ == '__main__':
     rospy.init_node('motor_controller')
-    experiment = JointController()
+    experiment = ArmPoseChanger()
     rospy.spin()
