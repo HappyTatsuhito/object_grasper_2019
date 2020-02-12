@@ -47,11 +47,11 @@ class ObjectGrasper(ArmPoseChanger):
         if not joint_angle:
             return
         self. wristPub(joint_angle[2])
-        while self.m3_is_moving and not rospy.is_shutdown():
+        while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
         rospy.sleep(0.1)
-        m3_angle = self.m3_current_pos
-        m3_diff = self.m3_error
+        m3_angle = self.current_pose[3]
+        m3_diff = self.torque_error[3]
         shoulder_param = -1*(joint_angle[1]/2.1+m3_angle)*2.1-(m3_diff+0.01)*32
         # -(m3_diff+0.025)*32：重さ補正
         rospy.sleep(0.2)
@@ -61,14 +61,14 @@ class ObjectGrasper(ArmPoseChanger):
         rospy.sleep(0.4)
         self.armController(shoulder_param, joint_angle[1]-0.6, m3_angle+0.3)
         rospy.sleep(0.2)
-        self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
+        self.callMotorService(self.origin_angle[4])
         rospy.sleep(0.5)
         self.moveBase(-0.3)
         self.shoulderPub(shoulder_param+0.2)
         self.moveBase(-0.8)
         self.changeArmPose('carry')
         self.navigation_place = 'Null'
-        rospy.loginfo('  Finish place command\n')
+        rospy.loginfo('Finish place command\n')
         return True
                         
     def moveBase(self,rad_speed):
@@ -122,11 +122,11 @@ class ObjectGrasper(ArmPoseChanger):
         self.changeArmPose('carry')
         rospy.sleep(4.0)
         if grasp_flg :
-            grasp_flg = self.m4_error > 0.03
+            grasp_flg = self.torque_error[4] > 0.03
         if grasp_flg :
             rospy.loginfo('Successfully grasped the object!')
         else:
-            self.m4_pub.publish(self.M4_ORIGIN_ANGLE)
+            self.callMotorService(self.origin_angle[4])
             rospy.loginfo('Failed to grasp the object.')
         rospy.loginfo('Finish grasp.')
         return grasp_flg

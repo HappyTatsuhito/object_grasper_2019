@@ -213,7 +213,7 @@ class ArmPoseChanger(JointController):
         self.callMotorService(4, self.origin_angle[4])
         rospy.loginfo('Finish give command\n')
 
-    def placeMode(self, height):
+    def placeMode(self):
         '''
         shoulder_param = 0.0
         elbow_param = 0.0
