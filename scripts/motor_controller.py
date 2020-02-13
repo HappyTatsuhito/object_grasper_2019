@@ -22,7 +22,7 @@ class MotorController(object):
         # ROS Service Client
         self.motor_client = rospy.ServiceProxy('/dynamixel_workbench/dynamixel_command',DynamixelCommand)
         # Motor Parameters
-        self.origin_angle = [2048, 2048, 2048, 2048, 2048, 2048]
+        self.origin_angle = [2048, 2100, 2212, 2048, 2048, 2048]
         self.current_pose = [0]*5
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
@@ -66,7 +66,7 @@ class JointController(MotorController):
         thread_m1 = threading.Thread(target=self.callMotorService, args=(1, step1,))
         thread_m0.start()
         thread_m1.start()
-        rospy.sleep(0.1)
+        rospy.sleep(0.5)
         while (self.rotation_velocity[0] > 0 or self.rotation_velocity[1] > 0) and not rospy.is_shutdown():
             pass
         rospy.sleep(1.0)
@@ -85,7 +85,7 @@ class JointController(MotorController):
         self.callMotorService(2, step)
         while self.rotation_velocity[2] > 0 and not rospy.is_shutdown():
             pass
-        rospy.sleep(0.1)
+        rospy.sleep(0.5)
         if abs(self.torque_error[2]) > 40:
             self.callMotorService(2, self.current_pose[2]+30)
 
@@ -97,7 +97,7 @@ class JointController(MotorController):
         self.callMotorService(3, step)
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
-        rospy.sleep(0.1)
+        rospy.sleep(0.5)
         if abs(self.torque_error[3]) > 40:
             self.callMotorService(3, self.current_pose[3]-30)
 
@@ -208,9 +208,11 @@ class ArmPoseChanger(JointController):
         rospy.sleep(0.5)
         wrist_error = abs(self.torque_error[3])
         give_time = time.time()
-        while wrist_error - abs(self.torque_error[3]) < 0.009 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
+        while abs(wrist_error - abs(self.torque_error[3])) < 5 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
+            print wrist_error, '\t', abs(self.torque_error[3])
             pass
         self.callMotorService(4, self.origin_angle[4])
+        self.carryMode()
         rospy.loginfo('Finish give command\n')
 
     def placeMode(self):
