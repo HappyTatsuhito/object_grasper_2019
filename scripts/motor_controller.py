@@ -22,7 +22,7 @@ class MotorController(object):
         # ROS Service Client
         self.motor_client = rospy.ServiceProxy('/dynamixel_workbench/dynamixel_command',DynamixelCommand)
         # Motor Parameters
-        self.origin_angle = [2048, 2100, 2212, 2048, 2048, 2048]
+        self.origin_angle = [2048, 2100, 2048, 2048, 2048, 2048]
         self.current_pose = [0]*5
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
