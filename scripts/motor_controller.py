@@ -59,8 +59,8 @@ class JointController(MotorController):
         if type(rad) == type(Float64()):
             rad = rad.data
         step = self.radToStep(rad)
-        step0 = 4095 - step
-        step1 = step
+        step0 = 4095 - step + (self.origin_angle[0]-2048)
+        step1 = step + (self.origin_angle[1]-2048)
         print '0:', step0, ' 1:', step1
         thread_m0 = threading.Thread(target=self.callMotorService, args=(0, step0,))
         thread_m1 = threading.Thread(target=self.callMotorService, args=(1, step1,))
@@ -80,7 +80,7 @@ class JointController(MotorController):
         if type(rad) == type(Float64()):
             rad = rad.data
         rad *= -1
-        step = self.radToStep(rad)
+        step = self.radToStep(rad) + (self.origin_angle[2]-2048)
         print '2: ', step
         self.callMotorService(2, step)
         while self.rotation_velocity[2] > 0 and not rospy.is_shutdown():
@@ -94,7 +94,7 @@ class JointController(MotorController):
             rad = rad.data
         step = self.radToStep(rad)
         print '3: ', step
-        self.callMotorService(3, step)
+        self.callMotorService(3, step) + (self.origin_angle[3]-2048)
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
         rospy.sleep(0.5)
