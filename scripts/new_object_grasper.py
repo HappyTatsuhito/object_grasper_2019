@@ -124,10 +124,10 @@ class ObjectGrasper(Experiment):
         self.cmd_vel_pub.publish(cmd)
 
     def approachObject(self,object_centroid):
-        if object_centroid.x < 0.6 or object_centroid.x > 0.8:
-            move_range = (object_centroid.x-0.75)*2.0
-            if abs(move_range) < 0.4:
-                move_range = int(move_range/abs(move_range))*0.4
+        if object_centroid.x < 0.5 or object_centroid.x > 0.8:
+            move_range = (object_centroid.x-0.65)*2.0
+            if abs(move_range) < 0.3:
+                move_range = int(move_range/abs(move_range))*0.3
             self.moveBase(move_range)
             return False
         else :
