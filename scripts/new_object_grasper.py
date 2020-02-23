@@ -61,7 +61,7 @@ class ObjectGrasper(Experiment):
             self.armController(shoulder_param, elbow_param, wrist_param)
             while self.m3_is_moving and not rospy.is_shutdown():
                 pass
-            rospy.sleep(1.0)
+            rospy.sleep(0.5)
             wrist_error = abs(self.m3_error)
             give_time = time.time()
             while wrist_error - abs(self.m3_error) < 0.009 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
@@ -73,7 +73,7 @@ class ObjectGrasper(Experiment):
         
         elif cmd == 'place':
             self.moveBase(-0.55)
-            y = self.target_place[self.navigation_place] + 0.1
+            y = self.target_place[self.navigation_place] + 0.2
             x = (y-0.75)/10+0.5
             joint_angle = self.inverseKinematics(x, y)
             if not joint_angle:
