@@ -6,6 +6,7 @@ import time
 import math
 import threading
 import actionlib
+#import rosparam
 # -- ros msgs --
 from std_msgs.msg import Bool,Float64,String
 from dynamixel_msgs.msg import JointState
@@ -37,6 +38,7 @@ class ObjectGrasper(Experiment):
         # -- instance variables --
         self.navigation_place = 'Null'
         self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.66, 'Drei':0.69, 'vier':0.38}
+        #self.place_list = rosparam.get_param('/place_list')
         #self.front_laser_dist = 0.00
 
         self.act.start()
@@ -145,7 +147,7 @@ class ObjectGrasper(Experiment):
         self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         rospy.sleep(2.5)
         move_range = (0.17+object_centroid.x+0.15-(x+0.2))*4.0
-        self.moveBase(move_range*0.6)
+        self.moveBase(move_range*0.7)
         rospy.sleep(0.3)
         self.moveBase(move_range*0.4)
         grasp_flg = self.endeffectorPub(True)
