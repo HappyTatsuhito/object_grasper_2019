@@ -37,7 +37,7 @@ class ObjectGrasper(Experiment):
         self.act.register_preempt_callback(self.actionPreempt)
         # -- instance variables --
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.67, 'Drei':0.69, 'vier':0.38}
+        self.target_place = {'Null':0.75, 'Eins':0.75, 'Zwei':0.67, 'Drei':0.69, 'vier':0.38}
         #self.place_list = rosparam.get_param('/place_list')
         #self.front_laser_dist = 0.00
 
