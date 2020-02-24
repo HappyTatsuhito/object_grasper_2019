@@ -72,7 +72,7 @@ class ObjectGrasper(Experiment):
             return True
         
         elif cmd == 'place':
-            self.moveBase(-0.55)
+            self.moveBase(-0.5)
             y = self.target_place[self.navigation_place] + 0.26
             x = (y-0.75)/10+0.5
             joint_angle = self.inverseKinematics(x, y)
@@ -89,7 +89,9 @@ class ObjectGrasper(Experiment):
             rospy.sleep(0.2)
             self.shoulderPub(shoulder_param)
             self.elbowPub(joint_angle[1]+0.2)
-            self.moveBase(0.8)
+            self.moveBase(0.6)
+            rospy.sleep(0.3)
+            self.moveBase(0.4)
             rospy.sleep(0.4)
             self.armController(shoulder_param, joint_angle[1]-0.6, m3_angle+0.3)
             rospy.sleep(0.2)
