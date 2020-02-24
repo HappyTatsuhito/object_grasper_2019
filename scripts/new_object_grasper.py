@@ -91,7 +91,7 @@ class ObjectGrasper(Experiment):
             self.elbowPub(joint_angle[1]+0.2)
             self.moveBase(0.6)
             rospy.sleep(0.3)
-            self.moveBase(0.4)
+            self.moveBase(0.6)
             rospy.sleep(0.4)
             self.armController(shoulder_param, joint_angle[1]-0.6, m3_angle+0.3)
             rospy.sleep(0.2)
