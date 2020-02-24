@@ -154,7 +154,7 @@ class ObjectGrasper(Experiment):
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(1.0)
         self.shoulderPub(joint_angle[0]+0.1)
-        self.moveBase(-0.7)
+        self.moveBase(-0.9)
         #self.shoulderPub(0.7) # 重い物体を把持した場合に必要
         self.changeArmPose('carry')
         rospy.sleep(4.0)
