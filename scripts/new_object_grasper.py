@@ -48,7 +48,7 @@ class ObjectGrasper(Experiment):
             cmd = cmd.target
         rospy.loginfo('  Change arm command : %s'%cmd)
         if cmd == 'carry':
-            shoulder_param = -3.2
+            shoulder_param = -3.24
             elbow_param = 2.6
             wrist_param = 1.4
             self.armController(shoulder_param, elbow_param, wrist_param)
