@@ -22,7 +22,7 @@ class MotorController(object):
         # ROS Service Client
         self.motor_client = rospy.ServiceProxy('/dynamixel_workbench/dynamixel_command',DynamixelCommand)
         # Motor Parameters
-        self.origin_angle = [2048, 2100, 2048, 2048, 2048, 2048]
+        self.origin_angle = [2000, 2048, 2048, 2048, 2850, 2048]
         self.current_pose = [0]*5
         self.torque_error = [0]*5
         self.rotation_velocity = [0]*5
@@ -159,7 +159,7 @@ class ArmPoseChanger(JointController):
             wrist_angle = -1*(shoulder_angle + elbow_angle)
             shoulder_angle *= 2.1
             elbow_angle *= 2.1
-            #self.armController(shoulder_angle, elbow_angle, wrist_angle)
+            #self.armCotnroller(shoulder_angle, elbow_angle, wrist_angle)
             return [shoulder_angle, elbow_angle, wrist_angle]
         except ValueError:
             rospy.loginfo('I can not move arm.')
@@ -216,12 +216,7 @@ class ArmPoseChanger(JointController):
         rospy.loginfo('Finish give command\n')
 
     def placeMode(self):
-        '''
-        shoulder_param = 0.0
-        elbow_param = 0.0
-        wrist_param = 0.0
-        self.armController(shoulder_param, elbow_param, wrist_param)
-        '''
+        pass
 
         
 if __name__ == '__main__':
