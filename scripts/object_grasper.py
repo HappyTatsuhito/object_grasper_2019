@@ -11,7 +11,6 @@ from std_msgs.msg import Bool,Float64,String
 from dynamixel_msgs.msg import JointState
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
-#from sensor_msgs.msg import LaserScan
 # --  ros srvs --
 from manipulation.srv import ManipulateSrv
 # -- action msgs --
@@ -34,14 +33,13 @@ class ObjectGrasper(ArmPoseChanger):
         self.act.register_preempt_callback(self.actionPreempt)
         # -- instance variables --
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.72, 'Zwei':0.66, 'Drei':0.69}
-        #self.front_laser_dist = 0.00
+        self.target_place = {'Null':0.75, 'Eins':0.73, 'Zwei':0.67, 'Drei':0.69, 'vier':0.40}
 
         self.act.start()
 
     def placeMode(self):
-        self.moveBase(-0.55)
-        y = self.target_place[self.navigation_place] + 0.1
+        self.moveBase(-0.5)
+        y = self.target_place[self.navigation_place] + 0.26
         x = (y-0.75)/10+0.5
         joint_angle = self.inverseKinematics(x, y)
         if not joint_angle:
@@ -64,8 +62,8 @@ class ObjectGrasper(ArmPoseChanger):
         self.callMotorService(self.origin_angle[4])
         rospy.sleep(0.5)
         self.moveBase(-0.3)
-        self.shoulderPub(shoulder_param+0.2)
-        self.moveBase(-0.8)
+        self.shoulderPub(shoulder_param+0.1)
+        self.moveBase(-0.9)
         self.changeArmPose('carry')
         self.navigation_place = 'Null'
         rospy.loginfo('Finish place command\n')
@@ -88,10 +86,10 @@ class ObjectGrasper(ArmPoseChanger):
         self.cmd_vel_pub.publish(cmd)
 
     def approachObject(self,object_centroid):
-        if object_centroid.x < 0.6 or object_centroid.x > 0.75:
-            move_range = (object_centroid.x-0.7)*2.0
-            if abs(move_range) < 0.4:
-                move_range = int(move_range/abs(move_range))*0.4
+        if object_centroid.x < 0.5 or object_centroid.x > 0.8:
+            move_range = (object_centroid.x-0.65)*2.0
+            if abs(move_range) < 0.3:
+                move_range = int(move_range/abs(move_range))*0.3
             self.moveBase(move_range)
             return False
         else :
@@ -110,14 +108,15 @@ class ObjectGrasper(ArmPoseChanger):
             return False
         self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
         rospy.sleep(2.5)
+        object_centroid.x -= ((object_centroid.x-0.6)/1.5)
         move_range = (0.17+object_centroid.x+0.15-(x+0.2))*4.5
         self.moveBase(move_range*0.7)
         rospy.sleep(0.3)
         self.moveBase(move_range*0.4)
         grasp_flg = self.endeffectorPub(True)
         rospy.sleep(1.0)
-        self.shoulderPub(joint_angle[0]+0.2)
-        self.moveBase(-0.6)
+        self.shoulderPub(joint_angle[0]+0.1)
+        self.moveBase(-0.9)
         #self.shoulderPub(0.7) # 重い物体を把持した場合に必要
         self.changeArmPose('carry')
         rospy.sleep(4.0)
@@ -132,7 +131,7 @@ class ObjectGrasper(ArmPoseChanger):
         return grasp_flg
     
     def navigationPlaceCB(self,res):
-        target_dic = {'Eins':['desk'], 'Zwei':['cupboard'], 'Drei':['shelf']}
+        target_dic = {'Eins':['desk', 'table'], 'Zwei':['cupboard'], 'Drei':['shelf'], 'vier':['chair']}
         for key,value in target_dic.items():
             if res.data in value:
                 self.navigation_place = key
@@ -161,4 +160,5 @@ if __name__ == '__main__':
     rospy.init_node('object_grasper')
     grasper = ObjectGrasper()
     grasper.callMotorService(4, 0.0)
+    grasper.changeArmPose('carry')
     rospy.spin()
