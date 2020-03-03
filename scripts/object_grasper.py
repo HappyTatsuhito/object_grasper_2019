@@ -26,7 +26,7 @@ class ObjectGrasper(ArmPoseChanger):
         # -- topic publisher --
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size = 1)
         # -- action server --
-        self.act = actionlib.SimpleActionServer('/object/grasp',
+        self.act = actionlib.SimpleActionServer('/manipulation/grasp',
                                                 ObjectGrasperAction,
                                                 execute_cb = self.actionMain,
                                                 auto_start = False)

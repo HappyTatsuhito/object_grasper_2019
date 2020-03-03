@@ -49,11 +49,11 @@ class JointController(MotorController):
     def __init__(self):
         super(JointController,self).__init__()
         # ROS Topic Subscriber
-        rospy.Subscriber('/shoulder_req',Float64,self.shoulderPub)
-        rospy.Subscriber('/elbow_req',Float64,self.elbowPub)
-        rospy.Subscriber('/wrist_req',Float64,self.wristPub)
-        rospy.Subscriber('/endeffector_req',Bool,self.endeffectorPub)
-        rospy.Subscriber('/head_req',Float64,self.headPub)
+        rospy.Subscriber('/servo/shoulder',Float64,self.shoulderPub)
+        rospy.Subscriber('/servo/elbow',Float64,self.elbowPub)
+        rospy.Subscriber('/servo/wrist',Float64,self.wristPub)
+        rospy.Subscriber('/servo/endeffector',Bool,self.endeffectorPub)
+        rospy.Subscriber('/servo/head',Float64,self.headPub)
 
     def shoulderPub(self,rad):
         if type(rad) == type(Float64()):
@@ -133,18 +133,7 @@ class ArmPoseChanger(JointController):
     def __init__(self):
         super(ArmPoseChanger,self).__init__()
         # ROS Topic Subscriber
-        rospy.Subscriber('/origin_initialize_req',Bool,self.initializeMotor)
-        arm_changer = rospy.Service('/change_arm_pose', ManipulateSrv, self.changeArmPose)
-
-    def initializeMotor(self,res):
-        msg = JointTrajectory()
-        msg.header.stamp = rospy.Time.now()
-        msg.joint_names = ['m0_controller', 'm1_controller', 'm2_controller', 'm3_controller', 'm4_controller', 'm5_controller']
-        msg.points = [JointTrajectoryPoint() for i in range(1)]
-        msg.points[0].positions = [self.origin_angle[0], self.origin_angle[1], self.origin_angle[2], self.origin_angle[3], self.origin_angle[4], self.origin_angle[5]]
-        msg.points[0].time_from_start = rospy.Time(1.0)
-        self.motor_pub.publish(msg)
-        rospy.loginfo('initialized all motors!')
+        arm_changer = rospy.Service('/servo/arm', ManipulateSrv, self.changeArmPose)
 
     def inverseKinematics(self, x, y):
         l0 = 0.78# Height from ground to shoulder(metre)
@@ -181,7 +170,10 @@ class ArmPoseChanger(JointController):
         if type(cmd) != str:
             cmd = cmd.target
         rospy.loginfo('Chagnge arm command : %s'%cmd)
-        if cmd == 'carry':
+        if cmd == 'origin':
+            self.originMode()
+            return True
+        elif cmd == 'carry':
             self.carryMode()
             return True
         elif cmd == 'give':
@@ -193,11 +185,17 @@ class ArmPoseChanger(JointController):
         else :
             rospy.loginfo('No sudh change arm command.')
             return False
+
+    def originMode(self):
+        shoulder_param = 0.0
+        elbow_param = 0.0
+        wrist_param = 0.0
+        self.armController(shoulder_param, elbow_param, wrist_param)
         
     def carryMode(self):
         shoulder_param = -3.0
         elbow_param = 2.6
-        wrist_param =1.4
+        wrist_param = 1.4
         self.armController(shoulder_param, elbow_param, wrist_param)
 
     def giveMode(self):
@@ -207,17 +205,17 @@ class ArmPoseChanger(JointController):
         self.armController(shoulder_param, elbow_param, wrist_param)
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
-        rospy.sleep(3.0)
+        rospy.sleep(2.0)
         wrist_error = abs(self.torque_error[3])
         give_time = time.time()
         while abs(wrist_error - abs(self.torque_error[3])) < 10 and time.time() - give_time < 5.0 and not rospy.is_shutdown():
-            print wrist_error, '\t', abs(self.torque_error[3])
             pass
         self.callMotorService(4, self.origin_angle[4])
         self.carryMode()
-        rospy.loginfo('Finish give command\n')
 
     def placeMode(self):
+        #現時点では家具の高さを予めプログラムに打ち込む必要があり、
+        #その情報をobject_grasperに格納しているのでそちらでplaceの関数を再構築しています。
         pass
 
         
