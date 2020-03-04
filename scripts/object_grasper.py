@@ -33,33 +33,55 @@ class ObjectGrasper(ArmPoseChanger):
         self.act.register_preempt_callback(self.actionPreempt)
         # -- instance variables --
         self.navigation_place = 'Null'
-        self.target_place = {'Null':0.75, 'Eins':0.73, 'Zwei':0.67, 'Drei':0.69, 'vier':0.40}
+        self.target_place = {'Null':0.75, 'Eins':0.725, 'Zwei':0.67, 'Drei':0.690, 'vier':0.480}
 
         self.act.start()
 
     def placeMode(self):
         self.moveBase(-0.5)
-        y = self.target_place[self.navigation_place] + 0.26
-        x = (y-0.75)/10+0.5
+        y = self.target_place[self.navigation_place] + 0.2
+        #x = (y-0.78)/10+0.5
+        x = 0.5
         joint_angle = self.inverseKinematics(x, y)
         if not joint_angle:
             return
+        print 'joint : ', joint_angle
+        print 'joint0 : ', self.radToStep(joint_angle[0])
+        print 'joint1 : ', self.radToStep(joint_angle[1])
+        print 'joint2 : ', self.radToStep(joint_angle[2])
+        self.armController(joint_angle[0], joint_angle[1], joint_angle[2])
+        self.moveBase(0.6)
+        rospy.sleep(0.4)
+        self.armController(joint_angle[0], joint_angle[1]-0.6, joint_angle[2]+0.3)
+        rospy.sleep(0.2)
+        self.callMotorService(4, self.origin_angle[4])
+        rospy.sleep(0.5)
+        self.moveBase(-0.3)
+        self.shoulderPub(joint_angle[0]+0.1)
+        self.moveBase(-0.9)
+        self.changeArmPose('carry')
+        self.navigation_place = 'Null'
+        rospy.loginfo('Finish place command\n')
+        return True
+        '''
         self. wristPub(joint_angle[2])
         while self.rotation_velocity[3] > 0 and not rospy.is_shutdown():
             pass
         rospy.sleep(0.1)
-        m3_angle = self.current_pose[3]
-        m3_diff = self.torque_error[3]
+        m3_angle = self.stepToRad(self.current_pose[3])
+        m3_diff = self.stepToRad(self.torque_error[3])
         shoulder_param = -1*(joint_angle[1]/2.1+m3_angle)*2.1-(m3_diff+0.01)*32
         # -(m3_diff+0.025)*32：重さ補正
         rospy.sleep(0.2)
+        print 'current : ', self.current_pose[3], 'error : ', self.torque_error[3]
+        print 'm3_angle : ', m3_angle, 'm3_diff : ', m3_diff, 'shoulder : ',self.radToStep(shoulder_param)
         self.shoulderPub(shoulder_param)
         self.elbowPub(joint_angle[1])
         self.moveBase(0.6)
         rospy.sleep(0.4)
         self.armController(shoulder_param, joint_angle[1]-0.6, m3_angle+0.3)
         rospy.sleep(0.2)
-        self.callMotorService(self.origin_angle[4])
+        self.callMotorService(4, self.origin_angle[4])
         rospy.sleep(0.5)
         self.moveBase(-0.3)
         self.shoulderPub(shoulder_param+0.1)
@@ -68,6 +90,7 @@ class ObjectGrasper(ArmPoseChanger):
         self.navigation_place = 'Null'
         rospy.loginfo('Finish place command\n')
         return True
+        '''
                         
     def moveBase(self,rad_speed):
         cmd = Twist()
@@ -102,7 +125,8 @@ class ObjectGrasper(ArmPoseChanger):
             y = object_centroid.z + 0.06
         else:
             y = self.target_place[self.navigation_place] + 0.13
-        x = (y-0.75)/10+0.5 #0.5
+        #x = (y-0.75)/10+0.5
+        x = 0.5
         joint_angle = self.inverseKinematics(x, y)
         if not joint_angle:
             return False
